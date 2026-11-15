@@ -1,0 +1,39 @@
+name: Base Plaza Reserva
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  base:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: plaza_test
+          POSTGRES_PASSWORD: ci-only-disposable
+          POSTGRES_DB: plaza_reserva_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U plaza_test -d plaza_reserva_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://plaza_test:ci-only-disposable@localhost:5432/plaza_reserva_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pip check
+      - run: python -m compileall -q src tests migrations
+      - run: python -m pytest --junitxml=test-results/base.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: base-test-results
+          path: test-results/base.xml

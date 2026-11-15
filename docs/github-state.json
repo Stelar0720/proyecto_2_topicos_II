@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/Stelar0720/proyecto_2_topicos_II",
+  "project": {
+    "number": 4,
+    "url": "https://github.com/users/Stelar0720/projects/4"
+  },
+  "issues": {
+    "BASE-01": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/1",
+    "BASE-02": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/2",
+    "HU-01": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/3",
+    "HU-02": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/4",
+    "HU-03": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/5",
+    "HU-04": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/6",
+    "HU-05": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/7",
+    "QA-01": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/8",
+    "ENTREGA-01": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/9"
+  },
+  "branch": "base/plaza-reserva",
+  "pull_request": null,
+  "board_view_pending": false,
+  "last_error": null,
+  "remote_main_commit": "973432095fbd2ea9f40d9125b7cc35af9a2e1b6e",
+  "connector_account": "Stelar0720"
+}
