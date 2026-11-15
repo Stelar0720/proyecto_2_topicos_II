@@ -16,9 +16,10 @@
     "ENTREGA-01": "https://github.com/Stelar0720/proyecto_2_topicos_II/issues/9"
   },
   "branch": "base/plaza-reserva",
-  "pull_request": null,
+  "pull_request": "https://github.com/Stelar0720/proyecto_2_topicos_II/pull/10",
   "board_view_pending": false,
   "last_error": null,
   "remote_main_commit": "973432095fbd2ea9f40d9125b7cc35af9a2e1b6e",
-  "connector_account": "Stelar0720"
+  "connector_account": "Stelar0720",
+  "published_commit": "7f41b6c1b2f61e87639f0f1cc363441cb621c598"
 }

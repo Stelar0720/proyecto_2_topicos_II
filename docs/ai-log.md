@@ -35,3 +35,5 @@ cambio inesperado real registrado**. No completar esos hitos retroactivamente.
 
 Para próximos incrementos agregar actividad/herramienta/solicitud/resultado/decisión,
 con comandos/URLs/hashes reales cuando existan y aprobación humana identificada.
+
+- 2026-11-15T17:13:35.757361-05:00: Publicación por script: https://github.com/Stelar0720/proyecto_2_topicos_II/pull/10. Rama base/plaza-reserva publicada desde su historial remoto; PR creado o reutilizado sin fusión. No equivale a ejecución de pruebas ni aceptación humana.

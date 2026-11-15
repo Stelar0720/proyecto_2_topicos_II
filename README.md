@@ -125,3 +125,5 @@ Miniprompts completos: [Francisco](docs/handoff/francisco.md) y
 Responsables, rotación y coordinación: [team-plan](docs/team-plan.md).
 Preguntas antes de historias/publicación: [decisiones](docs/decisions.md).
 Tareas: [tasks](specs/tasks.md). Registro IA: [ai-log](docs/ai-log.md).
+
+PR inicial (sin fusionar): [base compartida](https://github.com/Stelar0720/proyecto_2_topicos_II/pull/10).
