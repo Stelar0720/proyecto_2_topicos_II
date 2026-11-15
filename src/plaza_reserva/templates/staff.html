@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<p class="eyebrow">Sesión de {{ staff.role }}</p><h1>Hola, {{ staff.username }}.</h1>
+<p>El acceso del personal está preparado. Las operaciones se incorporarán por historias completas.</p>
+<section class="grid"><article><h2>Garita</h2><p>Ingresos con reserva y espontáneos: pendientes.</p></article><article><h2>Salidas</h2><p>Cálculo y pago manual: pendientes.</p></article><article><h2>Vigilancia</h2><p>Alerta de más de 24 horas: pendiente.</p></article></section>
+<button id="logout" type="button">Cerrar sesión</button><p id="logout-message" role="status"></p>
+{% endblock %}
