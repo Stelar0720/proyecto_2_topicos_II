@@ -206,3 +206,148 @@ def reserve_submit(request: Request, plate: str = Form(default=""),
         context={"reservation": result, "qr_svg": qr_svg(result["private_code"]),
                  "created": local_time(result["created_at"]),
                  "expires": local_time(result["expires_at"])}))
+
+
+# --- HU-02 · consulta y cancelación privadas por código -----------------------
+
+STATUS_LABELS = {"pending": "Vigente", "expired": "Vencida",
+                 "cancelled": "Cancelada", "used": "Utilizada"}
+
+
+def effective_status(reservation: Reservation, now: datetime) -> str:
+    """Una reserva pendiente vencida se interpreta vencida sin escribir."""
+    if reservation.status == "pending" and reservation.expires_at <= now:
+        return "expired"
+    return reservation.status
+
+
+def reservation_payload(reservation: Reservation, now: datetime) -> dict:
+    status = effective_status(reservation, now)
+    remaining = max(0, int((reservation.expires_at - now).total_seconds())) if status == "pending" else 0
+    return {"status": status, "status_label": STATUS_LABELS[status],
+            "plate": reservation.plate, "space_code": reservation.space_id,
+            "created_at": reservation.created_at, "expires_at": reservation.expires_at,
+            "cancelled_at": reservation.cancelled_at, "used_at": reservation.used_at,
+            "remaining_seconds": remaining}
+
+
+def _code_digest(raw: str) -> str:
+    code = (raw or "").strip()
+    if not 1 <= len(code) <= 128:
+        raise AppError(404, "NOT_FOUND", "No encontramos una reserva con ese código")
+    return token_digest(code)
+
+
+def lookup_reservation(session: Session, now: datetime, raw_code: str) -> dict:
+    """Solo devuelve la reserva cuyo código privado coincide; sin enumeración."""
+    reservation = session.scalar(select(Reservation).where(
+        Reservation.token_hash == _code_digest(raw_code)))
+    if reservation is None:
+        raise AppError(404, "NOT_FOUND", "No encontramos una reserva con ese código")
+    return reservation_payload(reservation, now)
+
+
+def cancel_reservation(session: Session, now: datetime, raw_code: str) -> dict:
+    """D-05: repetir la cancelación devuelve el mismo estado terminal.
+
+    Usada responde 409; vencida informa su estado efectivo sin reescribirlo.
+    """
+    digest = _code_digest(raw_code)
+    try:
+        with allocation_transaction(session):
+            release_expired(session, now)
+            reservation = session.scalar(select(Reservation).where(
+                Reservation.token_hash == digest))
+            if reservation is None:
+                raise AppError(404, "NOT_FOUND", "No encontramos una reserva con ese código")
+            if reservation.status == "used":
+                raise AppError(409, "RESERVATION_USED", "La reserva ya se utilizó en garita")
+            if reservation.status == "cancelled":
+                return reservation_payload(reservation, now)
+            if reservation.status == "expired":
+                return reservation_payload(reservation, now)
+            reservation.status = "cancelled"
+            reservation.cancelled_at = now
+            session.execute(delete(Allocation).where(
+                Allocation.reservation_id == reservation.id))
+            payload = reservation_payload(reservation, now)
+    except OperationalError:
+        raise AppError(503, "DATABASE_BUSY", "La base está ocupada; vuelve a intentarlo") from None
+    return payload
+
+
+class CodeBody(BaseModel):
+    private_code: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/reservations/lookup")
+def lookup(body: CodeBody, request: Request, response: Response,
+           session: Session = Depends(get_session)):
+    payload = lookup_reservation(session, request.app.state.clock.now(), body.private_code)
+    _no_store(response)
+    return payload
+
+
+@router.post("/reservations/cancel", dependencies=[Depends(same_origin)])
+def cancel(body: CodeBody, request: Request, response: Response,
+           session: Session = Depends(get_session)):
+    payload = cancel_reservation(session, request.app.state.clock.now(), body.private_code)
+    _no_store(response)
+    return payload
+
+
+def _status_context(payload: dict, now: datetime, error=None, code=""):
+    return {"reservation": payload, "error": error, "code": code,
+            "created": local_time(payload["created_at"]),
+            "expires": local_time(payload["expires_at"]),
+            "cancelled": local_time(payload["cancelled_at"]) if payload["cancelled_at"] else None,
+            "remaining": -(-payload["remaining_seconds"] // 60),
+            "as_of": local_time(now), "local": local_time}
+
+
+@views.get("/mi-reserva", response_class=HTMLResponse)
+def lookup_page(request: Request, response: Response):
+    _no_store(response)
+    return templates.TemplateResponse(
+        request=request, name="reservations/lookup.html",
+        context={"code": "", "error": None})
+
+
+@views.post("/mi-reserva", response_class=HTMLResponse, dependencies=[Depends(same_origin)])
+def lookup_submit(request: Request, private_code: str = Form(default=""),
+                  session: Session = Depends(get_session)):
+    now = request.app.state.clock.now()
+    try:
+        payload = lookup_reservation(session, now, private_code)
+    except AppError as exc:
+        if exc.status != 404:
+            raise
+        return _no_store(templates.TemplateResponse(
+            request=request, name="reservations/lookup.html", status_code=404,
+            context={"code": "", "error": exc.message}))
+    return _no_store(templates.TemplateResponse(
+        request=request, name="reservations/status.html",
+        context=_status_context(payload, now, code=private_code)))
+
+
+@views.post("/mi-reserva/cancelar", response_class=HTMLResponse,
+            dependencies=[Depends(same_origin)])
+def cancel_submit(request: Request, private_code: str = Form(default=""),
+                  session: Session = Depends(get_session)):
+    now = request.app.state.clock.now()
+    try:
+        payload = cancel_reservation(session, now, private_code)
+    except AppError as exc:
+        if exc.status not in {404, 409}:
+            raise
+        if exc.status == 404:
+            return _no_store(templates.TemplateResponse(
+                request=request, name="reservations/lookup.html", status_code=404,
+                context={"code": "", "error": exc.message}))
+        payload = lookup_reservation(session, now, private_code)
+        return _no_store(templates.TemplateResponse(
+            request=request, name="reservations/status.html", status_code=409,
+            context=_status_context(payload, now, error=exc.message, code=private_code)))
+    return _no_store(templates.TemplateResponse(
+        request=request, name="reservations/status.html",
+        context=_status_context(payload, now, code=private_code)))

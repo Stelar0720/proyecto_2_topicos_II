@@ -252,3 +252,155 @@ def test_effective_availability_ignores_expired_without_writing(engine, clock):
         data = effective_availability(session, clock.value)
         assert data["preferential"]["available"] == 20
         assert session.scalar(select(Reservation.status)) == "pending"
+
+
+# --- T-02A/B · consulta y cancelación privadas (AC-04/08) --------------------
+
+
+def create(client, plate):
+    response = reserve(client, plate)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def lookup(client, code):
+    return client.post("/api/reservations/lookup", json={"private_code": code})
+
+
+def cancel(client, code):
+    return client.post("/api/reservations/cancel", json={"private_code": code}, headers=ORIGIN)
+
+
+def test_lookup_returns_only_the_own_reservation(client, engine):
+    seed(engine)
+    mine = create(client, "LOOK01")
+    create(client, "LOOK02")
+    response = lookup(client, mine["private_code"])
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["plate"] == "LOOK01"
+    assert body["space_code"] == "P001"
+    assert body["remaining_seconds"] == 30 * 60
+    assert "LOOK02" not in response.text
+    assert "token_hash" not in body
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_lookup_with_unknown_code_is_generic_and_enumerates_nothing(client, engine):
+    seed(engine)
+    for code in ("no-existe", "x" * 128):
+        response = lookup(client, code)
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "NOT_FOUND"
+        assert "LOOK" not in response.text
+    assert counts(engine) == (0, 0)
+
+
+def test_lookup_at_exact_expiry_reports_expired_without_writing(client, engine, clock):
+    seed(engine)
+    mine = create(client, "LOOK03")
+    clock.value += timedelta(minutes=30)
+    body = lookup(client, mine["private_code"]).json()
+    assert body["status"] == "expired"
+    assert body["remaining_seconds"] == 0
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.status)) == "pending"
+
+
+def test_cancel_releases_space_and_repeats_same_terminal_state(client, engine, clock):
+    seed(engine)
+    mine = create(client, "CANC01")
+    first = cancel(client, mine["private_code"])
+    assert first.status_code == 200
+    body = first.json()
+    assert body["status"] == "cancelled"
+    assert body["cancelled_at"] is not None
+    assert client.get("/api/availability").json()["preferential"]["available"] == 20
+    with Session(engine) as session:
+        assert session.get(Allocation, "P001") is None
+        assert session.scalar(select(Reservation.status)) == "cancelled"
+        cancelled_at = session.scalar(select(Reservation.cancelled_at))
+    clock.value += timedelta(minutes=5)
+    second = cancel(client, mine["private_code"])
+    assert second.status_code == 200
+    assert second.json()["cancelled_at"] == body["cancelled_at"]
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.cancelled_at)) == cancelled_at
+
+
+def test_cancel_used_reservation_is_a_conflict(client, engine, clock):
+    seed(engine)
+    mine = create(client, "CANC02")
+    with Session(engine) as session:
+        reservation = session.scalar(select(Reservation))
+        reservation.status = "used"
+        reservation.used_at = clock.value
+        session.commit()
+    response = cancel(client, mine["private_code"])
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RESERVATION_USED"
+
+
+def test_cancel_expired_reservation_reports_expired_and_frees_space(client, engine, clock):
+    seed(engine)
+    mine = create(client, "CANC03")
+    clock.value += timedelta(minutes=31)
+    response = cancel(client, mine["private_code"])
+    assert response.status_code == 200
+    assert response.json()["status"] == "expired"
+    assert counts(engine) == (1, 0)
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.status)) == "expired"
+
+
+def test_cancel_with_invalid_code_changes_nothing(client, engine):
+    seed(engine)
+    create(client, "CANC04")
+    before = counts(engine)
+    response = cancel(client, "codigo-inventado")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+    assert counts(engine) == before
+
+
+def test_cancel_requires_same_origin(client, engine):
+    seed(engine)
+    mine = create(client, "CANC05")
+    assert client.post("/api/reservations/cancel",
+                       json={"private_code": mine["private_code"]}).status_code == 403
+    assert counts(engine) == (1, 1)
+
+
+def test_cancelled_space_can_be_reserved_again(client, engine):
+    seed(engine)
+    mine = create(client, "CANC06")
+    assert cancel(client, mine["private_code"]).status_code == 200
+    again = create(client, "CANC07")
+    assert again["space_code"] == "P001"
+
+
+def test_lookup_and_cancel_views_work_without_leaking_the_code(client, engine):
+    seed(engine)
+    mine = create(client, "VIEW02")
+    page = client.get("/mi-reserva")
+    assert page.status_code == 200
+    assert 'name="private_code"' in page.text
+    found = client.post("/mi-reserva", data={"private_code": mine["private_code"]}, headers=ORIGIN)
+    assert found.status_code == 200
+    assert "P001" in found.text and "VIEW02" in found.text
+    assert found.headers["cache-control"] == "no-store"
+    assert mine["private_code"] not in str(found.request.url)
+    cancelled = client.post("/mi-reserva/cancelar", data={"private_code": mine["private_code"]},
+                            headers=ORIGIN)
+    assert cancelled.status_code == 200
+    assert "cancelada" in cancelled.text.lower()
+    assert client.get("/api/availability").json()["preferential"]["available"] == 20
+
+
+def test_lookup_view_with_unknown_code_is_generic(client, engine):
+    seed(engine)
+    page = client.post("/mi-reserva", data={"private_code": "otro-codigo"}, headers=ORIGIN)
+    assert page.status_code == 404
+    assert "No encontramos una reserva con ese código" in page.text
+    assert "P001" not in page.text

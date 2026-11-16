@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Mi reserva · {{ reservation.status_label }} · Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Consulta privada</p>
+<h1>Reserva {{ reservation.status_label|lower }}</h1>
+{% if error %}<p class="notice" role="alert"><strong>{{ error }}</strong></p>{% endif %}
+{% if reservation.status == 'pending' %}
+<p class="intro">El espacio <strong>{{ reservation.space_code }}</strong> sigue retenido para la placa <strong>{{ reservation.plate }}</strong> hasta {{ expires }} (America/Panama){% if remaining %} — quedan {{ remaining }} minutos{% endif %}.</p>
+{% elif reservation.status == 'cancelled' %}
+<p class="intro">La reserva de la placa <strong>{{ reservation.plate }}</strong> fue cancelada el {{ cancelled }} y el espacio {{ reservation.space_code }} quedó libre. Una reserva cancelada ya no autoriza el ingreso.</p>
+{% elif reservation.status == 'expired' %}
+<p class="intro">La reserva de la placa <strong>{{ reservation.plate }}</strong> venció el {{ expires }} sin ingreso registrado. El espacio {{ reservation.space_code }} dejó de estar retenido y la reserva ya no autoriza la entrada.</p>
+{% else %}
+<p class="intro">La reserva de la placa <strong>{{ reservation.plate }}</strong> ya se utilizó en garita y su estadía está asociada al espacio {{ reservation.space_code }}. No se puede cancelar.</p>
+{% endif %}
+<section class="grid" aria-label="Detalles de la reserva">
+ <article><h2>Estado</h2><p class="number">{{ reservation.status_label }}</p><p>Consultado {{ as_of }} (America/Panama).</p></article>
+ <article><h2>Espacio</h2><p class="number">{{ reservation.space_code }}</p>{% if reservation.status == 'pending' %}<p>Preferencial retenido para esta reserva.</p>{% else %}<p>Preferencial asociado a la reserva; ya no está retenido por ella.</p>{% endif %}</article>
+ <article><h2>Horas</h2><p>Creada {{ created }}.</p><p>Vence {{ expires }}.</p>{% if cancelled %}<p>Cancelada {{ cancelled }}.</p>{% endif %}</article>
+</section>
+{% if reservation.status == 'pending' %}
+<form method="post" action="/mi-reserva/cancelar">
+ <input type="hidden" name="private_code" value="{{ code }}">
+ <button type="submit">Cancelar mi reserva</button>
+ <p>Cancelar libera el espacio de inmediato. La página no se guarda en caché y el código solo viaja en el cuerpo de la petición.</p>
+</form>
+{% else %}
+<p><a class="button" href="/reservar">Hacer otra reserva</a></p>
+{% endif %}
+<p class="notice">Placa <strong>{{ reservation.plate }}</strong> · El código privado nunca se muestra completo en esta consulta y no se registra en los logs.</p>
+{% endblock %}
