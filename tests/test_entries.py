@@ -293,3 +293,29 @@ def test_garita_form_reports_reservation_conflict(client, engine, clock):
     assert page.status_code == 409
     assert "No se registró el ingreso" in page.text
     assert session_stays(engine) == 0
+
+
+def test_conversion_rolls_back_when_it_fails_halfway(client, engine, clock, monkeypatch):
+    """Fallo forzado tras escribir estadía, asignación y reserva: nada persiste."""
+    import pytest
+
+    import plaza_reserva.entries as entries
+
+    seed(engine)
+    login(client, engine, clock)
+    reservation = reserve(client, "ROLL01")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("fallo simulado tras las escrituras")
+
+    monkeypatch.setattr(entries, "_stay_payload", boom)
+    with pytest.raises(RuntimeError):
+        entry_reservation(client, reservation["private_code"], "ROLL01")
+    monkeypatch.undo()
+    assert counts(engine) == (0, 1)
+    with Session(engine) as session:
+        stored = session.scalar(select(Reservation))
+        allocation = session.get(Allocation, "P001")
+        assert stored.status == "pending" and stored.used_at is None
+        assert allocation.reservation_id == stored.id and allocation.stay_id is None
+    assert entry_reservation(client, reservation["private_code"], "ROLL01").status_code == 201

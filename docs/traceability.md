@@ -67,8 +67,22 @@ Dependencia de integración: HU-02 se apoya en HU-01; la rama se basa en
 | AC-08 estados terminales | vencida, cancelada y usada rechazan el ingreso con 409; el rechazo revierte la normalización y la siguiente asignación limpia la fila obsoleta |
 | AC-13 roles y secreto | API sin sesión 401, rol vigilancia 403; vista 401/403 con páginas propias; mutaciones sin Origin 403 |
 | Ticket | Chromium real: ingreso espontáneo → G001, QR decodificado con `zbarimg` devuelve exactamente el código del ticket, botón de impresión presente |
+| Rollback de la conversión | fallo forzado tras escribir estadía, asignación y reserva: nada persiste; la reserva sigue `pending` y el segundo intento entra |
 | Ingreso con reserva en garita | Chromium real: código + placa → estadía en P001; placa duplicada → aviso de placa con estadía abierta |
 
 Decisión de implementación: las asignaciones usan una sesión nueva, porque la sesión
 de la petición ya leyó la sesión del personal y `allocation_transaction` exige una
 transacción sin lecturas previas (lo verifica en tiempo de ejecución).
+
+## Contrato y tablero (2026-11-16)
+
+- `specs/api.md` pasa a v0.2 y documenta los campos aditivos de HU-01/02/03
+  (`plate`, `status_label`, `remaining_seconds`, `stay_id`, `as_of`, `ticket_code`)
+  y la regla de mutación con `Origin` o `Sec-Fetch-Site: same-origin`.
+- **Tablero sin actualizar**: el token disponible no tiene `read:project` ni escritura
+  de Project, así que no se movieron tarjetas ni se asignaron responsables. Los issues
+  #1–#9 siguen en estado `OPEN` (columna Pendiente del Project 4). Para actualizarlos
+  hace falta una cuenta con permiso de proyectos y ejecutar, por cada issue:
+  `gh project item-list 4 --owner Stelar0720` para obtener el `item-id`, y
+  `gh project item-edit --id <item-id> --project-id <project-id> --field-id <status-field-id> --single-select-option-id <opción "En revisión">`.
+  Sin esos identificadores verificados no se escribe nada: inventarlos falsearía el tablero.

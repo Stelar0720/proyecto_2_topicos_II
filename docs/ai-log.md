@@ -75,3 +75,11 @@ no "Terminadas".
 | HU-03 | Implementar T-03A/B | `entries.py`, `templates/entries/`, `static/entries.js`, pruebas; commits T-03A y T-03B | Agente: `require_roles` para API y páginas propias 401/403 en vistas |
 | Sesión nueva | Asignación con personal autenticado | `allocation_transaction` rechazó la sesión de la petición porque ya leyó la sesión del personal; se abre sesión nueva para la asignación | Agente: mantiene la regla del handoff; probado en pruebas |
 | Verificación | Pruebas y navegador | 60 passed SQLite, 116 con PostgreSQL 17; Chromium: ingreso espontáneo G001 con QR decodificado por `zbarimg`, ingreso con reserva en P001, placa duplicada rechazada | Agente: resultados de esta sesión |
+
+## Cierre documental (2026-11-16)
+
+| Actividad | Solicitud | Resultado real | Decisión / origen |
+|---|---|---|---|
+| Contrato | Documentar lo implementado | `specs/api.md` v0.2: campos aditivos y regla `Origin`/`Sec-Fetch-Site` | Agente: sin cambiar rutas ni códigos ya usados |
+| Rollback | Probar fallo a mitad de conversión | Prueba nueva con fallo forzado tras las escrituras: nada persiste y el segundo intento entra | Agente: `17 tests` de entradas en SQLite |
+| Tablero | Revisar por qué sigue Pendiente | Falta scope de proyectos en el token; se documentan los pasos exactos sin inventar IDs | Agente: no se modificó el tablero |
