@@ -1,0 +1,25 @@
+﻿{% extends 'base.html' %}
+{% block title %}Vigilancia - Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Vigilancia - {{ staff.role }} {{ staff.username }}</p>
+<h1>Estadías abiertas de más de 24 horas</h1>
+<p class="intro">Alerta informativa: no aplica recargo ni libera espacios. Solo se muestran estadías abiertas con duración estrictamente mayor a 24 horas.</p>
+<p class="eyebrow">Consulta al {{ as_of }} - America/Panama</p>
+{% if items %}
+<table>
+ <thead><tr><th>Placa</th><th>Espacio</th><th>Entrada</th><th>Tiempo transcurrido</th></tr></thead>
+ <tbody>
+ {% for item in items %}
+ <tr>
+  <td>{{ item.plate }}</td>
+  <td>{{ item.space_code }}</td>
+  <td>{{ item.entered_local }}</td>
+  <td>{{ item.elapsed_hours }} h {{ item.elapsed_minutes }} min ({{ item.elapsed_seconds }} s)</td>
+ </tr>
+ {% endfor %}
+ </tbody>
+</table>
+{% else %}
+<p class="notice">No hay estadías abiertas con más de 24 horas en este momento.</p>
+{% endif %}
+{% endblock %}

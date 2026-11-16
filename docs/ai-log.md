@@ -83,3 +83,20 @@ no "Terminadas".
 | Contrato | Documentar lo implementado | `specs/api.md` v0.2: campos aditivos y regla `Origin`/`Sec-Fetch-Site` | Agente: sin cambiar rutas ni códigos ya usados |
 | Rollback | Probar fallo a mitad de conversión | Prueba nueva con fallo forzado tras las escrituras: nada persiste y el segundo intento entra | Agente: `17 tests` de entradas en SQLite |
 | Tablero | Revisar por qué sigue Pendiente | Falta scope de proyectos en el token; se documentan los pasos exactos sin inventar IDs | Agente: no se modificó el tablero |
+
+## HU-04/HU-05/QA-01 - Apoyo de Alex (2026-11-16, rama \Parte-de-AJ\)
+
+Herramienta: agente de codificacion (opencode), shell PowerShell/Python, venv local, pytest.
+Solicitud del usuario: implementar HU-04 T-04A/B, HU-05 T-05A y QA-01 T-QA1/2 en \Parte-de-AJ\, subir avances.
+
+| Actividad | Solicitud | Resultado real | Decision / origen |
+|---|---|---|---|
+| Rama y base | Trabajar en rama acordada | \origin/Parte-de-AJ\ rastreada localmente desde \cb4fa13\ (HU-03 integrado en main) | Usuario indico rama \Parte-de-AJ\; commits publicados alli |
+| HU-04 T-04A/B | Salida/cotizacion/cierre idempotente | \exits.py\, \	emplates/exits/*\, pruebas en \	ests/test_exits.py\, rutas registradas en \main.py\, enlace en \ase.html\ | Calculo entero us (2c/min, fraccion arriba, D-06); cierre en sesion nueva + \llocation_transaction\, 1 pago, libera allocation; idempotencia por \Idempotency-Key\ |
+| HU-05 T-05A | Alerta >24h | \lerts.py\, \	emplates/alerts/*\, vista \/vigilancia\, \	ests/test_alerts.py\ | Estrictamente >24h, solo abiertas, informativa, roles vigilancia/celador/admin |
+| QA-01 T-QA1/2 | Demo e integracion | \demo.py\, CLI \seed-demo\ (BD separada, ref 2026-11-15T17:00:00Z, 6 escenarios, idempotente), \	ests/integration/test_integration.py\ | Integra carreras de reserva/ingreso/cierre; no borra datos ajenos; namespace demo |
+| Correcciones | Entorno/pruebas | Ajuste \cli.py\ (mojibake que rompia import/coleccion) y flush en \demo.py\ para FK; fix nav \ase.html\ | Necesario para ejecutar suite |
+| Verificacion | Ejecutar pruebas | \compileall -q src tests\ OK; \pytest -q\ (SQLite, sin \TEST_POSTGRES_URL\) **79 passed, 77 warnings, 47.04s** | PostgreSQL real no ejecutado por falta de \TEST_POSTGRES_URL\ |
+| Documentacion | Actualizar contratos/traza | \specs/api.md\, \docs/traceability.md\, \docs/ai-log.md\ actualizados con resultados reales | Sin inventar PR/revision/aprobacion |
+
+No hay PR creado/fusionado, ni issues/tablero actualizados, ni CI remoto verificado, ni aceptacion humana.

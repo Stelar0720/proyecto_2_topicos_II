@@ -86,3 +86,21 @@ transacción sin lecturas previas (lo verifica en tiempo de ejecución).
   `gh project item-list 4 --owner Stelar0720` para obtener el `item-id`, y
   `gh project item-edit --id <item-id> --project-id <project-id> --field-id <status-field-id> --single-select-option-id <opción "En revisión">`.
   Sin esos identificadores verificados no se escribe nada: inventarlos falsearía el tablero.
+## Evidencia HU-04/HU-05/QA-01 (rama \Parte-de-AJ\, sin revision humana)
+
+Ejecutado el 2026-11-16 en esta sesion (agente, apoyo de Alex), resultados reales, no aprobacion.
+
+| Comprobacion | Resultado |
+|---|---|
+| \.\.venv\Scripts\python.exe -m compileall -q src tests\ | OK (rc 0) |
+| \.\.venv\Scripts\python.exe -m pytest -q\ (SQLite de archivo, sin \TEST_POSTGRES_URL\) | **79 passed, 77 warnings in 47.04s** |
+| PostgreSQL real (BD descartable \*_test\) | **No ejecutado**: \TEST_POSTGRES_URL\ no definido en el entorno |
+| AC-09 cotizacion | 0s/1s/60s/60s+1us/65min -> 0/2/2/4/130 centavos; quote no muta estadia |
+| AC-10 cierre/pago | un solo pago, \closed/exited_at/paid_at\, allocation liberada; reintento misma clave devuelve cierre original (importe/instante); clave reutilizada con otro ticket -> 409 \IDEMPOTENCY_CONFLICT\; carreras de cierre concurrente con pago unico |
+| AC-11 ticket cerrado | reuso de ticket cerrado no afecta nueva estadia del mismo espacio |
+| AC-12 alerta >24h | 24h-1s y 24h excluidas, 24h+1s incluida; cerradas excluidas; placa/espacio/duracion; sin recargo/liberacion |
+| AC-13 permisos/origen | salidas/alertas: 401 sin sesion, 403 rol no permitido, mutaciones exigen mismo origen |
+| AC-14 demo (seed-demo) | 6 escenarios (DEMO01..DEMO06) en BD migrada, idempotente (segunda carga noop), escenarios verificados en prueba de integracion |
+| Carreras integradas | ultimo preferencial (reserva) y ultimo general (walk-in) con ganador unico; cierre concurrente sin pagos duplicados (SQLite) |
+
+Limitaciones/notas: no se creo PR ni se actualizaron issues/tablero (\docs/github-state.json\ sin URL nueva; cuenta no verificada). CI/publicacion coordinacion pendiente con Jack. Pruebas PostgreSQL pendientes en entorno con \TEST_POSTGRES_URL\.
