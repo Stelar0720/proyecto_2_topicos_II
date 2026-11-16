@@ -1,15 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}Ticket de ingreso · Plaza Reserva{% endblock %}
 {% block content %}
-<p class="eyebrow">Ticket de ingreso</p>
-<h1>Estadía abierta en {{ entry.space_code }}</h1>
-<p class="intro">Placa <strong>{{ entry.plate }}</strong> · entrada {{ entered }} (America/Panama). Entrega esta hoja al conductor; el ticket se imprime desde el navegador.</p>
-<section class="grid" aria-label="Datos del ticket">
- <article><h2>Espacio</h2><p class="number">{{ entry.space_code }}</p><p>Asignado en garita.</p></article>
- <article><h2>Código del ticket</h2><p><code>{{ entry.ticket_code }}</code></p><p>En la base solo queda su digest. Se usa para la salida; no se repite.</p></article>
- <article><h2>QR del ticket</h2>{{ qr_svg|safe }}<p>Solo contiene el código del ticket: sin placa ni datos personales.</p></article>
+{% set entry_parts = entered.split(' ') %}
+<section class="ticket-shell" aria-labelledby="ticket-title">
+  <article class="entry-ticket">
+    <div class="ticket-brand"><span class="ticket-mark">P</span><strong>Plaza Reserva</strong></div>
+    <p class="ticket-kicker"><span></span>Ticket de ingreso<span></span></p>
+    <p class="ticket-status">Ingreso confirmado</p>
+    <p class="ticket-space-label">Espacio asignado</p>
+    <h1 id="ticket-title" class="ticket-space">{{ entry.space_code }}</h1>
+    <dl class="ticket-details">
+      <div><dt>Placa</dt><dd>{{ entry.plate }}</dd></div><div><dt>Fecha de ingreso</dt><dd>{{ entry_parts[0] }}</dd></div>
+      <div><dt>Hora de ingreso</dt><dd>{{ entry_parts[1] }}</dd></div><div><dt>Zona</dt><dd>{{ 'General' if entry.space_code.startswith('G') else 'Preferencial' }}</dd></div>
+    </dl>
+    <div class="ticket-qr" aria-label="Código QR del ticket">{{ qr_svg|safe }}</div>
+    <p class="ticket-qr-note">Presenta este QR al salir.</p>
+    <div class="ticket-code"><p><span></span>Código del ticket<span></span></p><code>{{ entry.ticket_code }}</code></div>
+    <div class="ticket-rate"><span aria-hidden="true">◷</span><p><strong>B/. 0.02 por minuto</strong><small>El cobro inicia desde tu ingreso.</small></p></div>
+    <p class="ticket-care"><strong>Conserva este ticket hasta finalizar tu visita.</strong><br>El código y QR son necesarios para registrar la salida.</p>
+    <p class="ticket-footer">Plaza comercial ficticia <span>·</span> Proyecto académico</p>
+  </article>
 </section>
-<button id="print-ticket" type="button">Imprimir ticket</button>
-<p class="notice">Un QR de una estadía cerrada no autoriza el cierre de otra salida. Si el conductor pierde el ticket, se localiza la estadía por placa en la historia de recuperación.</p>
+<p class="ticket-actions"><button id="print-ticket" type="button">Imprimir ticket</button><a class="button button-secondary" href="/garita">Volver a garita</a></p>
 <script src="{{ url_for('static', path='/entries.js') }}" defer></script>
 {% endblock %}

@@ -1,13 +1,35 @@
 {% extends 'base.html' %}
+{% block title %}Plaza Reserva · Estaciona con tranquilidad{% endblock %}
 {% block content %}
-<p class="eyebrow">Tópicos Especiales II · Proyecto 2</p>
-<h1>Un lugar para llegar.<br>Una base para construir.</h1>
-<p class="intro">Plaza Reserva prepara un registro consistente de reservas, ingresos y salidas para una plaza comercial ficticia.</p>
-<p class="notice"><strong>Base inicial.</strong> Las reservas preferenciales ya están disponibles; ingresos, cobros y alertas siguen pendientes.</p>
-<section class="grid" aria-label="Distribución planificada">
- <article><p class="number">20</p><h2>Preferenciales</h2><p>P001–P020 · Para reservas de llegada próxima.</p><span class="badge">Reserva y QR disponibles</span></article>
- <article><p class="number">80</p><h2>Generales</h2><p>G001–G080 · Para ingresos espontáneos.</p><span class="badge">Ingreso y ticket pendientes</span></article>
- <article><p class="number">24/7</p><h2>Operación continua</h2><p>Control de acceso y placas manuales.</p><span class="badge">Salida y alertas pendientes</span></article>
+<section class="landing-hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <p class="eyebrow">Estaciona con tranquilidad</p>
+    <h1 id="hero-title">Tu espacio listo.<br>Tu llegada más fácil.</h1>
+    <p class="intro">Reserva un espacio preferencial, presenta tu QR y disfruta tu visita.</p>
+    <div class="hero-actions">
+      <a class="button" href="/reservar">Reservar espacio <span aria-hidden="true">→</span></a>
+      <a class="button button-secondary" href="/mi-reserva">Consultar mi reserva</a>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <img src="{{ url_for('static', path='/plaza-comercial-hero.png') }}" alt="Plaza comercial con estacionamientos preferenciales señalados P012 y P013">
+  </div>
 </section>
-<p><a class="button" href="/reservar">Reservar espacio</a> <a class="button" href="/acceso">Acceso del personal</a></p>
+
+<section class="stats-panel" aria-label="Capacidad y tarifa de Plaza Reserva">
+  <article><span class="stat-icon" aria-hidden="true">▱</span><span><strong>20</strong><small>Espacios preferenciales</small></span></article>
+  <article><span class="stat-icon" aria-hidden="true">▱</span><span><strong>80</strong><small>Espacios generales</small></span></article>
+  <article><span class="stat-icon coin" aria-hidden="true">◉</span><span><strong>B/. 0.02</strong><small>Por minuto de estancia</small></span></article>
+</section>
+
+<section class="how-it-works" aria-labelledby="pasos-title">
+  <h2 id="pasos-title">Estacionar es así de fácil</h2>
+  <div class="steps-grid">
+    <article><span class="step-number">01</span><span class="step-icon" aria-hidden="true">□</span><h3>Reserva tu espacio</h3><p>Elige un espacio preferencial disponible y confirma tu reserva.</p></article>
+    <article><span class="step-number">02</span><span class="step-icon" aria-hidden="true">⌘</span><h3>Presenta tu QR</h3><p>Al llegar a la plaza, escanea tu código en el acceso.</p></article>
+    <article><span class="step-number">03</span><span class="step-icon" aria-hidden="true">▭</span><h3>Paga al salir</h3><p>Cancela solo por el tiempo de estancia, al momento de salir.</p></article>
+  </div>
+</section>
+
+<p class="reservation-note"><span aria-hidden="true">ⓘ</span> <strong>Tu reserva se mantiene durante 30 minutos</strong> para que puedas ingresar.</p>
 {% endblock %}

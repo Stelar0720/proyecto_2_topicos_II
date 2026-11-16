@@ -7,9 +7,14 @@
   <script src="{{ url_for('static', path='/auth.js') }}" defer></script>
 </head>
 <body>
-  <header><a class="brand" href="/">P<span>R</span> · Plaza Reserva</a>
-    <nav aria-label="Navegación principal"><a href="/">Inicio</a><a href="/reservar">Reservar</a><a href="/mi-reserva">Mi reserva</a><a href="/garita">Garita</a><a href="/salidas">Salidas</a><a href="/vigilancia">Vigilancia</a><a href="/personal">Personal</a><a href="/acceso">Acceso</a></nav>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Plaza Reserva, inicio"><span class="brand-mark">P</span><span>Plaza Reserva</span></a>
+    <nav aria-label="Navegación principal">
+      <a href="/">Inicio</a><a href="/reservar">Reservar</a><a href="/mi-reserva">Mi reserva</a>
+      <a class="staff-link" href="/acceso">Acceso del personal</a>
+    </nav>
   </header>
-  <main>{% block content %}{% endblock %}</main>
-  <footer>Proyecto académico · Plaza ficticia · America/Panama · Moneda B/.</footer>
+  <main id="contenido">{% block content %}{% endblock %}</main>
+  <footer>Plaza Reserva <span>·</span> Proyecto académico <span>·</span> Plaza comercial ficticia</footer>
 </body></html>
