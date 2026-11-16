@@ -11,9 +11,9 @@ Resultados reales en testing/verification; PR, commits y URLs solo cuando exista
 | OUT-01 | RF-01/02, BR-01–04/11/13–15 | HU-01, T-01A–C | `reservations.py`, `templates/reservations/`, `tests/test_reservations.py` | AC-01/02/03/07/13 verificados en rama `feature/hu-01-reservas`; PR pendiente de revisión humana (ver evidencia HU-01) |
 | OUT-01 | RF-03, BR-03/04/06/29/30 | HU-02, T-02A/B | `reservations.py` (lookup/cancel), `templates/reservations/lookup.html`, `status.html`, `tests/test_reservations.py` | AC-04/08/13 verificados en rama `feature/hu-02-consulta-cancelacion`; PR pendiente |
 | OUT-02 | RF-04/05, BR-05–17 | HU-03, T-03A/B | `entries.py`, `templates/entries/`, `static/entries.js`, `tests/test_entries.py` | AC-05–08/13 verificados en rama `feature/hu-03-ingresos`; PR pendiente |
-| OUT-03 | RF-06, BR-17–23 | HU-04, T-04A/B | exits.py previsto | AC-09–11/13 pendientes |
-| OUT-04 | RF-07, BR-24–28 | HU-05, T-05A | alerts.py previsto | AC-12/13 pendientes |
-| OUT-05 | RNF-01/04 | QA-01, T-QA1/2 | demo.py, integration/ previstos | AC-14 e integración pendientes |
+| OUT-03 | RF-06, BR-17-23 | HU-04, T-04A/B | `exits.py`, `templates/exits/`, `tests/test_exits.py` (rama `Parte-de-AJ`, PR pendiente) | AC-09/10/11/13 verificados en SQLite (79 passed suite, 2026-11-16); PostgreSQL no ejecutado (sin `TEST_POSTGRES_URL`) |
+| OUT-04 | RF-07, BR-24-28 | HU-05, T-05A | `alerts.py`, `templates/alerts/`, `tests/test_alerts.py` (rama `Parte-de-AJ`, PR pendiente) | AC-12/13 verificados en SQLite; PostgreSQL no ejecutado |
+| OUT-05 | RNF-01/04 | QA-01, T-QA1/2 | `demo.py`, `cli.py seed-demo`, `tests/integration/test_integration.py` (rama `Parte-de-AJ`, PR pendiente) | AC-14 y carreras verificadas en SQLite; PostgreSQL no ejecutado |
 | OUT-05 | RNF-04 | ENTREGA-01 | CI/README/config publicación posterior | ensayo y despliegue pendientes |
 
 Al completar cada PR añadir hash/URL real y resultados concretos, sin convertir
@@ -86,3 +86,21 @@ transacción sin lecturas previas (lo verifica en tiempo de ejecución).
   `gh project item-list 4 --owner Stelar0720` para obtener el `item-id`, y
   `gh project item-edit --id <item-id> --project-id <project-id> --field-id <status-field-id> --single-select-option-id <opción "En revisión">`.
   Sin esos identificadores verificados no se escribe nada: inventarlos falsearía el tablero.
+## Evidencia HU-04/HU-05/QA-01 (rama `Parte-de-AJ`, sin revision humana)
+
+Ejecutado el 2026-11-16 en esta sesion (agente, apoyo de Alex), resultados reales, no aprobacion.
+
+| Comprobacion | Resultado |
+|---|---|
+| `.venv/Scripts/python.exe -m compileall -q src tests` | OK (rc 0) |
+| `.venv/Scripts/python.exe -m pytest -q` (SQLite de archivo, sin `TEST_POSTGRES_URL`) | **79 passed, 77 warnings in 47.04s** |
+| PostgreSQL real (BD descartable `*_test`) | **No ejecutado**: `TEST_POSTGRES_URL` no definido en el entorno |
+| AC-09 cotizacion | 0s/1s/60s/60s+1us/65min -> 0/2/2/4/130 centavos; quote no muta estadia |
+| AC-10 cierre/pago | un solo pago, `closed/exited_at/paid_at`, allocation liberada; reintento misma clave devuelve cierre original (importe/instante); clave reutilizada con otro ticket -> 409 `IDEMPOTENCY_CONFLICT`; carreras de cierre concurrente con pago unico |
+| AC-11 ticket cerrado | reuso de ticket cerrado no afecta nueva estadia del mismo espacio |
+| AC-12 alerta >24h | 24h-1s y 24h excluidas, 24h+1s incluida; cerradas excluidas; placa/espacio/duracion; sin recargo/liberacion |
+| AC-13 permisos/origen | salidas/alertas: 401 sin sesion, 403 rol no permitido, mutaciones exigen mismo origen |
+| AC-14 demo (seed-demo) | 6 escenarios (DEMO01..DEMO06) en BD migrada, idempotente (segunda carga noop), escenarios verificados en prueba de integracion |
+| Carreras integradas | ultimo preferencial (reserva) y ultimo general (walk-in) con ganador unico; cierre concurrente sin pagos duplicados (SQLite) |
+
+Limitaciones: no se creo PR ni se actualizaron issues/tablero; CI/publicacion coordinacion pendiente con Jack. Pruebas PostgreSQL pendientes en entorno con `TEST_POSTGRES_URL`.

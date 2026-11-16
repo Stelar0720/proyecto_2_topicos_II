@@ -81,21 +81,26 @@ Conversión: reserva `pending` vigente → estadía `open` + `used`, con la asig
 movida de `reservation_id` a `stay_id` en un solo commit. El espontáneo solo recibe
 espacios `general`.
 
-## Propuesto, todavía NO implementado (HU-04/HU-05, Alex)
+## HU-04 - salida, cotizacion y cierre (rama `Parte-de-AJ`, pendiente de revision/PR)
 
-| Historia | Método / ruta | Cuerpo / respuesta prevista |
+| Metodo / ruta | Entrada | Salida |
 |---|---|---|
-| HU-04 | POST `/api/exits/quote` | celador/admin, `{ticket_code}` → estado/importe provisional/as_of; no muta |
-| HU-04 | POST `/api/exits/close` | celador/admin, `{ticket_code,payment_confirmed:true}` + `Idempotency-Key` → 200 cierre con importe calculado en servidor a `exited_at` |
-| HU-05 | GET `/api/alerts/long-stays` | vigilancia/celador/admin → placa, espacio, entered_at, elapsed_seconds, as_of |
+| POST `/api/exits/quote` | celador/admin, `{ticket_code}` + regla de origen | 200 `{status:"open",stay_id,space_code,plate,entered_at,as_of,duration_seconds,amount_cents}`; no muta. 404 `NOT_FOUND`, 409 `STAY_CLOSED` |
+| POST `/api/exits/close` | celador/admin, `{ticket_code,payment_confirmed:true}` + `Idempotency-Key` + regla de origen | 200 `{status:"closed",stay_id,space_code,plate,entered_at,exited_at,paid_at,amount_cents,duration_seconds,as_of}`. 409 `STAY_CLOSED`/`IDEMPOTENCY_CONFLICT`, 422 sin confirmacion o clave invalida |
+| GET `/salidas` | cookie celador/admin | HTML cotizacion/cierre; 401/403 |
+| POST `/salidas/cotizar` | formulario `ticket_code` + regla de origen | HTML con importe provisional |
+| POST `/salidas/cerrar` | formulario `ticket_code,payment_confirmed,idempotency_key` + regla de origen | HTML con cierre registrado |
 
-Conflictos previstos: `STAY_CLOSED`, `IDEMPOTENCY_CONFLICT`. Idempotencia de cierre:
-misma clave + mismo ticket devuelve el cierre original; misma clave + otro ticket →
-409; reintentar un ticket ya cerrado devuelve su cierre original, sin pago ni salida
-nuevos. El importe definitivo se calcula al confirmar; no se acepta cantidad del
-navegador. Un QR cerrado jamás autoriza otro vehículo. Vistas previstas: `/salidas`,
-`/vigilancia`.
+Cobro: 2 centavos/minuto desde `entered_at`, fraccion al minuto superior, aritmetica entera en microsegundos (D-06). Importe definitivo calculado en servidor al confirmar (`Clock.now()` capturado una vez); no se acepta importe del cliente. Cierre idempotente en transaccion con sesion nueva + `allocation_transaction`: crea 1 `Payment`, marca `closed/exited_at/paid_at` y libera `Allocation`. Misma `Idempotency-Key` + mismo ticket devuelve cierre original; misma clave con otro ticket -> 409 `IDEMPOTENCY_CONFLICT`; ticket ya cerrado devuelve su cierre original sin nuevo pago. Un ticket cerrado no afecta al nuevo ocupante del espacio.
 
+## HU-05 - alerta de estadias largas (rama `Parte-de-AJ`, pendiente de revision/PR)
+
+| Metodo / ruta | Entrada | Salida |
+|---|---|---|
+| GET `/api/alerts/long-stays` | vigilancia/celador/admin | 200 `{as_of,items:[{stay_id,plate,space_code,entered_at,elapsed_seconds}]}` solo estadias `open` con duracion estricta > 24h |
+| GET `/vigilancia` | cookie vigilancia/celador/admin | HTML informativo con placa/espacio/entrada/duracion; 401/403 |
+
+Alerta informativa: sin recargo ni liberacion. Fronteras: 24h-1s y 24h excluidas, 24h+1s incluida.
 ## Preguntas abiertas (no son contrato)
 
 - **Nombre del visitante**: la guía inicial (RN-03) dice «nombre y placa»;

@@ -17,6 +17,8 @@ from .config import Settings
 from .db import build_engine
 from .entries import router as entries_router, views as entries_views
 from .errors import AppError
+from .exits import router as exits_router, views as exits_views
+from .alerts import router as alerts_router, views as alerts_views
 from .reservations import router as reservations_router, views as reservations_views
 from .security import hash_password, new_token
 
@@ -48,6 +50,10 @@ def create_app(settings=None, clock=None, engine=None):
     app.include_router(reservations_views)
     app.include_router(entries_router)
     app.include_router(entries_views)
+    app.include_router(exits_router)
+    app.include_router(exits_views)
+    app.include_router(alerts_router)
+    app.include_router(alerts_views)
 
     def error_response(status, code, message):
         return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}},

@@ -48,21 +48,34 @@ def main():
     parser = argparse.ArgumentParser(description="Administración local de Plaza Reserva")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("seed-spaces", help="Agregar los 100 espacios de forma idempotente")
-    staff = commands.add_parser("create-staff", help="Alta de personal sin contraseña en argumentos")
+    staff = commands.add_parser("create-staff", help="Alta de personal sin contrasena en argumentos")
     staff.add_argument("--username", required=True)
     staff.add_argument("--role", choices=["celador", "vigilancia", "admin"], required=True)
+    demo = commands.add_parser("seed-demo", help="Cargar 6 escenarios demo idempotentes en BD separada")
+    demo.add_argument("--database-url", default=None, help="URL de BD destino (por defecto sqlite:///data/plaza_demo.db)")
     args = parser.parse_args()
+    if args.command == "seed-demo":
+        from .demo import seed_demo_database
+        db_url = args.database_url or "sqlite:///data/plaza_demo.db"
+        if db_url == Settings.from_env().database_url and "plaza_demo" not in db_url:
+            parser.exit(1, "seed-demo debe ejecutarse en una BD separada (use --database-url o data/plaza_demo.db)\n")
+        try:
+            result = seed_demo_database(db_url)
+            print(f"Demo: {result['status']} (inserted={result['inserted']}) en {db_url}")
+        except ValueError as exc:
+            parser.exit(1, f"{exc}\n")
+        return
     engine = build_engine(Settings.from_env().database_url)
     try:
         with Session(engine) as session:
             if args.command == "seed-spaces":
                 print(f"Espacios agregados: {seed_spaces(session)}")
             else:
-                password = getpass.getpass("Contraseña (12–128 caracteres): ")
-                if password != getpass.getpass("Repite contraseña: "):
-                    parser.exit(1, "Las contraseñas no coinciden\n")
+                password = getpass.getpass("Contrasena (12-128 caracteres): ")
+                if password != getpass.getpass("Repite contrasena: "):
+                    parser.exit(1, "Las contrasenas no coinciden\n")
                 create_staff(session, args.username, args.role, password)
-                print("Personal creado; contraseña no registrada")
+                print("Personal creado; contrasena no registrada")
     except ValueError as exc:
         parser.exit(1, f"{exc}\n")
     finally:
