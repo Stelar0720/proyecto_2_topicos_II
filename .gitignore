@@ -16,3 +16,7 @@ dist/
 *.sqlite*
 data/
 test-results/
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
