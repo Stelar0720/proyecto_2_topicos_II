@@ -25,11 +25,31 @@ document.querySelectorAll("[data-qr-target]").forEach((button) => {
     container.className = "qr-camera-panel";
     container.append(video, status, close);
     document.body.append(container);
-    const stop = () => { stream.getTracks().forEach(track => track.stop()); container.remove(); };
-    close.addEventListener("click", stop);
+    let stop = () => { stream.getTracks().forEach(track => track.stop()); container.remove(); };
+    close.addEventListener("click", () => stop());
     await video.play();
     if (!window.BarcodeDetector) {
-      status.textContent = "La cámara está activa, pero este navegador no puede leer QR automáticamente. Prueba con Chrome o Edge, o escribe el código manualmente.";
+      stream.getTracks().forEach(track => track.stop());
+      video.remove();
+      status.textContent = "Preparando lector QR compatible…";
+      if (!window.Html5Qrcode) {
+        status.textContent = "No se pudo cargar el lector QR compatible. Verifica tu conexión o escribe el código manualmente.";
+        return;
+      }
+      const scannerId = `qr-fallback-${Date.now()}`;
+      const scannerElement = document.createElement("div");
+      scannerElement.id = scannerId;
+      container.prepend(scannerElement);
+      const scanner = new Html5Qrcode(scannerId);
+      const closeFallback = () => scanner.stop().catch(() => {}).finally(() => container.remove());
+      stop = closeFallback;
+      try {
+        await scanner.start({facingMode: "environment"}, {fps: 10, qrbox: {width: 240, height: 240}},
+          value => { input.value = value; closeFallback(); }, () => {});
+        status.textContent = "Apunta la cámara al código QR.";
+      } catch {
+        status.textContent = "No se pudo iniciar el lector QR. Revisa el permiso de cámara e inténtalo de nuevo.";
+      }
       return;
     }
     status.textContent = "Apunta la cámara al código QR.";

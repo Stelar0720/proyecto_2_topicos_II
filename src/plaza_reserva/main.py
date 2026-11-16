@@ -89,7 +89,7 @@ def create_app(settings=None, clock=None, engine=None):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            "img-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
         if request.url.path == "/personal" or request.url.path.startswith("/api/auth"):
             response.headers["Cache-Control"] = "no-store"
