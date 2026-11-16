@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Garita · Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Garita · {{ staff.role }} {{ staff.username }}</p>
+<h1>Ingreso de vehículos</h1>
+<p class="intro">Comprueba la placa en el vehículo antes de confirmar. Los espacios preferenciales solo se asignan con reserva; los generales se asignan aquí a los espontáneos.</p>
+<section class="grid" aria-label="Disponibilidad para garita">
+ <article><p class="number">{{ availability.preferential.available }}</p><h2>Preferenciales libres</h2><p>de {{ availability.preferential.total }} · solo con reserva</p></article>
+ <article><p class="number">{{ availability.general.available }}</p><h2>Generales libres</h2><p>de {{ availability.general.total }} · ingreso espontáneo</p></article>
+ <article><p class="number">30</p><h2>Minutos de retención</h2><p>Una reserva vencida no autoriza el ingreso.</p></article>
+</section>
+<p class="eyebrow">Disponibilidad al {{ as_of }} · America/Panama</p>
+{% if error %}<p class="notice" role="alert"><strong>No se registró el ingreso.</strong> {{ error }}</p>{% endif %}
+<h2>Ingreso con reserva</h2>
+<form method="post" action="/garita/reserva">
+ <label for="private_code">Código del QR o código manual</label>
+ <input id="private_code" name="private_code" value="{{ code }}" maxlength="128" required autocomplete="off" spellcheck="false">
+ <label for="plate">Placa verificada</label>
+ <input id="plate" name="plate" value="{{ plate }}" maxlength="12" required autocomplete="off">
+ <button type="submit">Confirmar ingreso con reserva</button>
+ <p>Se registra la utilización de la reserva y el inicio de la estadía en un solo paso.</p>
+</form>
+<h2>Ingreso espontáneo</h2>
+<form method="post" action="/garita/espontaneo">
+ <label for="plate-walkin">Placa verificada</label>
+ <input id="plate-walkin" name="plate" maxlength="12" required autocomplete="off">
+ <button type="submit">Asignar general y entrar</button>
+ <p>Si no quedan generales, el ingreso se rechaza sin crear registros.</p>
+</form>
+<p class="notice">El ticket se muestra una vez al confirmar y se imprime desde el navegador. La salida, el cobro y la alerta de 24 horas corresponden a otra historia.</p>
+{% endblock %}
