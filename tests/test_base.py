@@ -17,7 +17,10 @@ def test_health_and_pending_navigation(client):
     assert page.status_code == 200
     assert "Base inicial" in page.text
     assert "pendientes" in page.text
-    assert client.post("/api/reservations", json={"plate": "ABC123"}).status_code == 404
+    # HU-01 ya publica la reserva: sin Origin la mutación se rechaza, nunca simula éxito.
+    rejected = client.post("/api/reservations", json={"plate": "ABC123"})
+    assert rejected.status_code == 403
+    assert rejected.json()["error"]["code"] == "ORIGIN_REQUIRED"
 
 
 def test_seed_idempotent_preserves_existing(engine, clock):

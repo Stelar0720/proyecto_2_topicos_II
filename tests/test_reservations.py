@@ -1,18 +1,39 @@
-"""T-01A · Disponibilidad efectiva y vista de reserva (AC-03)."""
+"""T-01B · Reserva transaccional, QR y errores (AC-01/07)."""
+import re
 from datetime import timedelta
 
-from sqlalchemy import select
+import pytest
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from plaza_reserva.cli import seed_spaces
-from plaza_reserva.models import Allocation, Reservation
+from plaza_reserva.models import Allocation, Reservation, Space, Stay
 from plaza_reserva.reservations import effective_availability
 from plaza_reserva.security import new_token, token_digest
+
+ORIGIN = {"Origin": "http://testserver"}
+CODE_PATTERN = re.compile(r"<code>([A-Za-z0-9_-]{43})</code>")
 
 
 def seed(engine):
     with Session(engine) as session:
         seed_spaces(session)
+
+
+def reserve(client, plate):
+    return client.post("/api/reservations", json={"plate": plate}, headers=ORIGIN)
+
+
+def counts(engine):
+    with Session(engine) as session:
+        return (session.scalar(select(func.count()).select_from(Reservation)),
+                session.scalar(select(func.count()).select_from(Allocation)))
+
+
+def fill_preferential(client, total):
+    for index in range(total):
+        response = reserve(client, f"FILL{index:02d}")
+        assert response.status_code == 201, response.text
 
 
 def test_availability_reports_effective_capacity_without_visitor_data(client, engine):
@@ -24,6 +45,96 @@ def test_availability_reports_effective_capacity_without_visitor_data(client, en
     assert set(payload) == {"as_of", "preferential", "general"}
 
 
+def test_reservation_holds_preferential_for_thirty_minutes(client, engine, clock):
+    seed(engine)
+    response = reserve(client, " abc-123 ")
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["space_code"] == "P001"
+    assert len(body["private_code"]) == 43
+    with Session(engine) as session:
+        stored = session.scalar(select(Reservation))
+        assert stored.plate == "ABC-123"
+        assert stored.expires_at - stored.created_at == timedelta(minutes=30)
+        assert stored.created_at == clock.value
+        assert stored.token_hash == token_digest(body["private_code"])
+        assert body["private_code"] != stored.token_hash
+        assert session.get(Allocation, "P001").reservation_id == stored.id
+    assert response.headers["cache-control"] == "no-store"
+    assert client.get("/api/availability").json()["preferential"]["available"] == 19
+
+
+def test_expiry_at_exact_instant_is_ignored_without_cron(client, engine, clock):
+    seed(engine)
+    assert reserve(client, "ABC123").status_code == 201
+    clock.value += timedelta(minutes=30)
+    assert client.get("/api/availability").json()["preferential"]["available"] == 20
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.status)) == "pending"
+    again = reserve(client, "ABC123")
+    assert again.status_code == 201, again.text
+    assert again.json()["space_code"] == "P001"
+    with Session(engine) as session:
+        assert sorted(session.scalars(select(Reservation.status)).all()) == ["expired", "pending"]
+
+
+def test_duplicate_pending_plate_is_rejected(client, engine):
+    seed(engine)
+    assert reserve(client, "DUP-01").status_code == 201
+    conflict = reserve(client, "dup-01")
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "PLATE_BUSY"
+    assert counts(engine) == (1, 1)
+
+
+def test_plate_with_open_stay_cannot_reserve(client, engine, clock):
+    seed(engine)
+    with Session(engine) as session:
+        stay = Stay(plate="EST-01", space_id="G001", ticket_hash=token_digest(new_token()),
+                    status="open", entered_at=clock.value)
+        session.add(stay)
+        session.flush()
+        session.add(Allocation(space_id="G001", plate="EST-01", stay_id=stay.id))
+        session.commit()
+    response = reserve(client, "EST-01")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PLATE_BUSY"
+    assert counts(engine) == (0, 1)
+
+
+@pytest.mark.parametrize("plate", ["A", "ABC 123", "PLACA.CON.PUNTO", "X" * 13, "  "])
+def test_invalid_plate_is_a_validation_error(client, engine, plate):
+    seed(engine)
+    response = reserve(client, plate)
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert counts(engine) == (0, 0)
+
+
+def test_category_full_leaves_no_partial_records(client, engine):
+    seed(engine)
+    fill_preferential(client, 20)
+    rejected = reserve(client, "FULL01")
+    assert rejected.status_code == 409
+    assert rejected.json()["error"]["code"] == "CATEGORY_FULL"
+    assert counts(engine) == (20, 20)
+    payload = client.get("/api/availability").json()
+    assert payload["preferential"]["available"] == 0
+    assert payload["general"]["available"] == 80
+
+
+def test_mutations_require_same_origin(client, engine):
+    seed(engine)
+    assert client.post("/api/reservations", json={"plate": "ORIG01"}).status_code == 403
+    foreign = client.post("/api/reservations", json={"plate": "ORIG01"},
+                          headers={"Origin": "https://ajeno.invalid"})
+    assert foreign.status_code == 403
+    assert foreign.json()["error"]["code"] == "ORIGIN_REQUIRED"
+    assert client.post("/reservar", data={"plate": "ORIG01"}).status_code == 403
+    assert counts(engine) == (0, 0)
+
+
 def test_availability_view_shows_capacity_and_form(client, engine):
     seed(engine)
     page = client.get("/reservar")
@@ -33,15 +144,41 @@ def test_availability_view_shows_capacity_and_form(client, engine):
     assert "30" in page.text
 
 
+def test_form_creates_reservation_with_qr_and_private_code(client, engine):
+    seed(engine)
+    page = client.post("/reservar", data={"plate": "TICK01"}, headers=ORIGIN)
+    assert page.status_code == 200
+    assert page.headers["cache-control"] == "no-store"
+    assert "P001" in page.text
+    match = CODE_PATTERN.search(page.text)
+    assert match, page.text
+    private_code = match.group(1)
+    svg = re.search(r"<svg.*?</svg>", page.text, re.S).group(0)
+    assert "TICK01" not in svg
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.token_hash)) == token_digest(private_code)
+    assert client.get("/api/availability").json()["preferential"]["available"] == 19
+
+
+def test_form_reports_conflict_without_creating_records(client, engine):
+    seed(engine)
+    fill_preferential(client, 20)
+    page = client.post("/reservar", data={"plate": "FULL02"}, headers=ORIGIN)
+    assert page.status_code == 409
+    assert "No se pudo reservar" in page.text
+    assert counts(engine) == (20, 20)
+
+
 def test_effective_availability_ignores_expired_without_writing(engine, clock):
     seed(engine)
     with Session(engine) as session:
-        session.add(Reservation(plate="VIEW01", space_id="P001", status="pending",
+        space = session.get(Space, "P001")
+        session.add(Reservation(plate="VIEW01", space_id=space.code, status="pending",
                                 token_hash=token_digest(new_token()),
                                 created_at=clock.value - timedelta(minutes=40),
                                 expires_at=clock.value - timedelta(minutes=10)))
         session.flush()
-        session.add(Allocation(space_id="P001", plate="VIEW01",
+        session.add(Allocation(space_id=space.code, plate="VIEW01",
                                reservation_id=session.scalar(select(Reservation.id))))
         session.commit()
         data = effective_availability(session, clock.value)
