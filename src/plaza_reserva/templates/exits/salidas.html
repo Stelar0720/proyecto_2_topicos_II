@@ -1,0 +1,22 @@
+﻿{% extends 'base.html' %}
+{% block title %}Salidas - Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Salidas - {{ staff.role }} {{ staff.username }}</p>
+<h1>Cotización y cierre de estadía</h1>
+<p class="intro">Ingresa el código del ticket para consultar el importe provisional. El cobro es manual y el importe definitivo se calcula al confirmar el cierre.</p>
+<p class="eyebrow">Consulta al {{ as_of }} - America/Panama</p>
+{% if error %}<p class="notice" role="alert"><strong>No se pudo cotizar.</strong> {{ error }}</p>{% endif %}
+<form method="post" action="/salidas/cotizar">
+ <label for="ticket_code">Código del ticket (QR o manual)</label>
+ <input id="ticket_code" name="ticket_code" value="{{ code }}" maxlength="128" required autocomplete="off" spellcheck="false">
+ <button type="submit">Calcular importe</button>
+</form>
+{% if quote %}
+<section class="grid" aria-label="Resultado de cotización">
+ <article><h2>Placa</h2><p class="number">{{ quote.plate }}</p><p>Espacio {{ quote.space_code }}.</p></article>
+ <article><h2>Importe provisional</h2><p class="number">B/. {{ '%.2f'|format(quote.amount_cents / 100) }}</p><p>{{ quote.amount_cents }} centavos ({{ quote.duration_seconds }} s desde entrada).</p></article>
+ <article><h2>Entrada</h2><p>{{ entered }}</p><p>Calculado al {{ as_of }} (America/Panama). No se acepta importe del cliente.</p></article>
+</section>
+<p class="notice">El cierre con pago manual y confirmación se habilita en la siguiente etapa (T-04B). Esta cotización no modifica la estadía.</p>
+{% endif %}
+{% endblock %}
