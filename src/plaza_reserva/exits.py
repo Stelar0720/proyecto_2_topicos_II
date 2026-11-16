@@ -21,7 +21,7 @@ from .auth import current_staff, require_roles, same_origin
 from .db import allocation_transaction, get_session
 from .errors import AppError
 from .models import Allocation, Payment, Staff, Stay
-from .reservations import local_time
+from .reservations import local_time, normalize_plate
 from .security import token_digest
 
 ROOT = Path(__file__).parent
@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory=str(ROOT / "templates"))
 SALIDA_ROLES = ("admin",)
 MICROSECONDS_PER_MINUTE = 60_000_000
 CENTS_PER_MINUTE = 2
+MISMATCH_FEE_CENTS = 2_500
 
 router = APIRouter(prefix="/api", tags=["salidas"])
 views = APIRouter(tags=["salidas"])
@@ -58,6 +59,21 @@ def quote_amount_cents(entered_at: datetime, now: datetime) -> int:
     return minutes * CENTS_PER_MINUTE
 
 
+def normalize_space_code(raw: str) -> str:
+    """Normaliza el espacio declarado por el personal para cotejar la salida."""
+    code = (raw or "").strip().upper()
+    if len(code) != 4 or code[0] not in {"P", "G"} or not code[1:].isdigit():
+        raise AppError(422, "VALIDATION_ERROR", "El espacio requiere formato P001 o G001")
+    return code
+
+
+def mismatch_fee(stay: Stay, raw_plate: str, raw_space_code: str) -> tuple[int, bool, bool]:
+    plate_matches = normalize_plate(raw_plate) == stay.plate
+    space_matches = normalize_space_code(raw_space_code) == stay.space_id
+    return (0 if plate_matches and space_matches else MISMATCH_FEE_CENTS,
+            plate_matches, space_matches)
+
+
 def _find_stay_by_ticket(session: Session, raw_code: str) -> Stay | None:
     code = (raw_code or "").strip()
     if not 1 <= len(code) <= 128:
@@ -75,19 +91,23 @@ def _close_payload(stay: Stay, payment: Payment, now: datetime) -> dict:
         "entered_at": stay.entered_at,
         "exited_at": stay.exited_at,
         "paid_at": payment.paid_at,
+        "base_amount_cents": payment.amount_cents - payment.mismatch_fee_cents,
+        "mismatch_fee_cents": payment.mismatch_fee_cents,
         "amount_cents": payment.amount_cents,
         "duration_seconds": duration_seconds,
         "as_of": now,
     }
 
 
-def quote_stay(session: Session, now: datetime, raw_code: str) -> dict:
+def quote_stay(session: Session, now: datetime, raw_code: str,
+               raw_plate: str, raw_space_code: str) -> dict:
     stay = _find_stay_by_ticket(session, raw_code)
     if stay is None:
         raise AppError(404, "NOT_FOUND", "No encontramos una estadia con ese ticket")
     if stay.status != "open":
         raise AppError(409, "STAY_CLOSED", "La estadia ya fue cerrada")
-    amount = quote_amount_cents(stay.entered_at, now)
+    base_amount = quote_amount_cents(stay.entered_at, now)
+    fee, plate_matches, space_matches = mismatch_fee(stay, raw_plate, raw_space_code)
     duration_seconds = max(0, int((now - stay.entered_at).total_seconds()))
     return {
         "status": stay.status,
@@ -97,12 +117,17 @@ def quote_stay(session: Session, now: datetime, raw_code: str) -> dict:
         "entered_at": stay.entered_at,
         "as_of": now,
         "duration_seconds": duration_seconds,
-        "amount_cents": amount,
+        "base_amount_cents": base_amount,
+        "mismatch_fee_cents": fee,
+        "amount_cents": base_amount + fee,
+        "plate_matches": plate_matches,
+        "space_matches": space_matches,
     }
 
 
 def close_stay(session: Session, now: datetime, raw_code: str, staff_id: str,
-               idempotency_key: str) -> dict:
+               idempotency_key: str, raw_plate: str | None = None,
+               raw_space_code: str | None = None) -> dict:
     """Cierra y registra pago manual en una sola transaccion idempotente.
 
     Requiere sesion nueva (la de la peticion ya leyo al personal). Usa
@@ -135,10 +160,13 @@ def close_stay(session: Session, now: datetime, raw_code: str, staff_id: str,
                 if payment is not None:
                     return _close_payload(stay, payment, now)
                 raise AppError(409, "STAY_CLOSED", "La estadia ya fue cerrada")
-            amount = quote_amount_cents(stay.entered_at, now)
+            base_amount = quote_amount_cents(stay.entered_at, now)
+            fee, _, _ = mismatch_fee(stay, raw_plate or stay.plate,
+                                      raw_space_code or stay.space_id)
             stay.status = "closed"
             stay.exited_at = now
-            payment = Payment(stay_id=stay.id, amount_cents=amount, paid_at=now,
+            payment = Payment(stay_id=stay.id, amount_cents=base_amount + fee,
+                              mismatch_fee_cents=fee, paid_at=now,
                               staff_id=staff_id, idempotency_key=key)
             session.add(payment)
             session.execute(delete(Allocation).where(Allocation.stay_id == stay.id))
@@ -169,10 +197,14 @@ def close_stay(session: Session, now: datetime, raw_code: str, staff_id: str,
 
 class TicketBody(BaseModel):
     ticket_code: str = Field(min_length=1, max_length=128)
+    plate: str = Field(min_length=1, max_length=40)
+    space_code: str = Field(min_length=1, max_length=12)
 
 
 class CloseBody(BaseModel):
     ticket_code: str = Field(min_length=1, max_length=128)
+    plate: str = Field(min_length=1, max_length=40)
+    space_code: str = Field(min_length=1, max_length=12)
     payment_confirmed: bool
 
 
@@ -180,7 +212,8 @@ class CloseBody(BaseModel):
 def exit_quote(body: TicketBody, request: Request, response: Response,
                session: Session = Depends(get_session),
                staff: Staff = Depends(require_roles(*SALIDA_ROLES))):
-    payload = quote_stay(session, request.app.state.clock.now(), body.ticket_code)
+    payload = quote_stay(session, request.app.state.clock.now(), body.ticket_code,
+                         body.plate, body.space_code)
     _no_store(response)
     return payload
 
@@ -197,7 +230,7 @@ def exit_close(body: CloseBody, request: Request, response: Response,
         raise AppError(422, "VALIDATION_ERROR", "Debes confirmar el pago manual")
     with _open_session(request) as session:
         payload = close_stay(session, request.app.state.clock.now(), body.ticket_code,
-                             staff.id, idempotency_key or "")
+                             staff.id, idempotency_key or "", body.plate, body.space_code)
     _no_store(response)
     return payload
 
@@ -222,10 +255,12 @@ def _denied(request: Request, staff: Staff | None):
 
 
 def _salidas_page(request: Request, staff: Staff, *, quote=None, closed=None,
-                  error=None, status: int = 200, code: str = ""):
+                   error=None, status: int = 200, code: str = "", plate: str = "",
+                   space_code: str = ""):
     now = request.app.state.clock.now()
     context = {"staff": staff, "as_of": local_time(now), "quote": quote,
-               "closed": closed, "error": error, "code": code}
+               "closed": closed, "error": error, "code": code, "plate": plate,
+               "space_code": space_code}
     if quote is not None:
         context["entered"] = local_time(quote["entered_at"])
     if closed is not None:
@@ -248,25 +283,28 @@ def salidas_page(request: Request, session: Session = Depends(get_session)):
 @views.post("/salidas/cotizar", response_class=HTMLResponse,
             dependencies=[Depends(same_origin)])
 def salidas_quote(request: Request, ticket_code: str = Form(default=""),
-                  session: Session = Depends(get_session)):
+                   plate: str = Form(default=""), space_code: str = Form(default=""),
+                   session: Session = Depends(get_session)):
     staff = _optional_staff(request, session)
     denied = _denied(request, staff)
     if denied is not None:
         return denied
     now = request.app.state.clock.now()
     try:
-        payload = quote_stay(session, now, ticket_code)
+        payload = quote_stay(session, now, ticket_code, plate, space_code)
     except AppError as exc:
         if exc.status not in {404, 409, 422}:
             raise
         return _salidas_page(request, staff, error=exc.message, status=exc.status,
-                             code=ticket_code)
-    return _salidas_page(request, staff, quote=payload, code=ticket_code)
+                              code=ticket_code, plate=plate, space_code=space_code)
+    return _salidas_page(request, staff, quote=payload, code=ticket_code,
+                         plate=plate, space_code=space_code)
 
 
 @views.post("/salidas/cerrar", response_class=HTMLResponse,
             dependencies=[Depends(same_origin)])
 def salidas_close(request: Request, ticket_code: str = Form(default=""),
+                  plate: str = Form(default=""), space_code: str = Form(default=""),
                   payment_confirmed: str = Form(default=""),
                   idempotency_key: str = Form(default=""),
                   session: Session = Depends(get_session)):
@@ -276,7 +314,7 @@ def salidas_close(request: Request, ticket_code: str = Form(default=""),
         return denied
     if payment_confirmed != "on":
         return _salidas_page(request, staff, error="Debes confirmar el pago manual.",
-                             status=422, code=ticket_code)
+                             status=422, code=ticket_code, plate=plate, space_code=space_code)
     if not idempotency_key.strip():
         # generar clave estable por intento de formulario para permitir reintento seguro
         import uuid
@@ -284,10 +322,12 @@ def salidas_close(request: Request, ticket_code: str = Form(default=""),
     now = request.app.state.clock.now()
     try:
         with _open_session(request) as assignment:
-            payload = close_stay(assignment, now, ticket_code, staff.id, idempotency_key)
+            payload = close_stay(assignment, now, ticket_code, staff.id, idempotency_key,
+                                 plate, space_code)
     except AppError as exc:
         if exc.status not in {404, 409, 422}:
             raise
         return _salidas_page(request, staff, error=exc.message, status=exc.status,
-                             code=ticket_code)
-    return _salidas_page(request, staff, closed=payload, code=ticket_code)
+                             code=ticket_code, plate=plate, space_code=space_code)
+    return _salidas_page(request, staff, closed=payload, code=ticket_code,
+                         plate=plate, space_code=space_code)

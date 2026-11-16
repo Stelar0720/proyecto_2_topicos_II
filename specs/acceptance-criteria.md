@@ -29,6 +29,7 @@ no resultados ya obtenidos. Detallar las historias posteriores justo antes de im
 | AC-15 | Dado cliente/admin autenticado, cuando programa una reserva con nombre, placa y fecha/hora pasada o futura, entonces se conserva la ventana de 30 minutos y se rechaza un solapamiento de preferencial. |
 | AC-16 | Dado un QR de visita, cuando se escanea en garita y luego en salida, entonces el mismo código identifica la misma estadía y el cobro comienza en `entered_at`. |
 | AC-17 | Dado el dashboard admin, cuando hay espacios libres, reservas/estadías normales y estadías abiertas de más de 24h, entonces muestra los 100 espacios en gris, verde y rojo respectivamente. |
+| AC-18 | Dada una estadía abierta, cuando el QR se cotiza/cierra con su misma placa y espacio, entonces no hay multa; cuando placa o espacio difiere, entonces se agregan exactamente 2,500 centavos una sola vez, se muestran separados y el reintento conserva el pago original. |
 
 AC-01–08 son el primer detalle operativo próximo: HU-01 → HU-02 → HU-03.
 Alex refinará AC-09–14 antes de implementar HU-04/05/QA-01, conservando fronteras.

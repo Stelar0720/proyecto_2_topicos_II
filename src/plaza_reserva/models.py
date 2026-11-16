@@ -146,7 +146,11 @@ class Payment(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     stay_id: Mapped[str] = mapped_column(ForeignKey("stays.id"), unique=True)
     amount_cents: Mapped[int] = mapped_column(Integer)
+    mismatch_fee_cents: Mapped[int] = mapped_column(Integer, default=0)
     paid_at: Mapped[datetime] = mapped_column(UTCDateTime())
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"))
     idempotency_key: Mapped[str] = mapped_column(String(128), unique=True)
-    __table_args__ = (CheckConstraint("amount_cents >= 0", name="nonnegative_amount"),)
+    __table_args__ = (
+        CheckConstraint("amount_cents >= 0", name="nonnegative_amount"),
+        CheckConstraint("mismatch_fee_cents >= 0", name="nonnegative_mismatch_fee"),
+    )

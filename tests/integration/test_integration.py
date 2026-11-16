@@ -9,7 +9,7 @@ from plaza_reserva.cli import create_staff, seed_spaces
 from plaza_reserva.demo import DEMO_REFERENCE, seed_demo
 from plaza_reserva.entries import enter_walk_in
 from plaza_reserva.errors import AppError
-from plaza_reserva.exits import close_stay, quote_amount_cents
+from plaza_reserva.exits import close_stay, quote_amount_cents, quote_stay
 from plaza_reserva.models import Allocation, Payment, Reservation, Space, Stay
 from plaza_reserva.reservations import create_reservation
 
@@ -100,3 +100,29 @@ def test_demo_seed_idempotent_and_scenarios(engine, clock):
         p6 = session.scalar(select(Payment).where(Payment.stay_id == s6.id))
         assert s6.status == "closed" and p6.amount_cents == 120
         assert session.get(Allocation, "G004") is None
+
+
+def test_exit_mismatch_adds_one_persisted_fee(engine, clock):
+    seed(engine)
+    with Session(engine) as session:
+        staff_id = create_staff(session, "audit_admin", "admin", PASSWORD, clock).id
+    with Session(engine) as session:
+        ticket = enter_walk_in(session, clock.value, "FINE01")["ticket_code"]
+    now = clock.value + timedelta(minutes=1)
+    with Session(engine) as session:
+        quote = quote_stay(session, now, ticket, "OTRA01", "G002")
+        assert quote["base_amount_cents"] == 2
+        assert quote["mismatch_fee_cents"] == 2500
+        assert quote["amount_cents"] == 2502
+        assert not quote["plate_matches"] and not quote["space_matches"]
+    with Session(engine) as session:
+        closed = close_stay(session, now, ticket, staff_id, "audit-fine-key", "OTRA01", "G002")
+        assert closed["mismatch_fee_cents"] == 2500
+        assert closed["amount_cents"] == 2502
+    with Session(engine) as session:
+        payment = session.scalar(select(Payment).where(Payment.idempotency_key == "audit-fine-key"))
+        assert payment.amount_cents == 2502 and payment.mismatch_fee_cents == 2500
+        assert session.get(Allocation, "G001") is None
+    with Session(engine) as session:
+        retried = close_stay(session, now, ticket, staff_id, "audit-fine-key", "FINE01", "G001")
+        assert retried["amount_cents"] == 2502 and retried["mismatch_fee_cents"] == 2500

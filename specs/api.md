@@ -111,13 +111,13 @@ espacios `general`.
 
 | Metodo / ruta | Entrada | Salida |
 |---|---|---|
-| POST `/api/exits/quote` | celador/admin, `{ticket_code}` + regla de origen | 200 `{status:"open",stay_id,space_code,plate,entered_at,as_of,duration_seconds,amount_cents}`; no muta. 404 `NOT_FOUND`, 409 `STAY_CLOSED` |
-| POST `/api/exits/close` | celador/admin, `{ticket_code,payment_confirmed:true}` + `Idempotency-Key` + regla de origen | 200 `{status:"closed",stay_id,space_code,plate,entered_at,exited_at,paid_at,amount_cents,duration_seconds,as_of}`. 409 `STAY_CLOSED`/`IDEMPOTENCY_CONFLICT`, 422 sin confirmacion o clave invalida |
+| POST `/api/exits/quote` | admin, `{ticket_code,plate,space_code}` + regla de origen | 200 incluye `base_amount_cents`, `mismatch_fee_cents`, `amount_cents`, `plate_matches`, `space_matches`; no muta. 404 `NOT_FOUND`, 409 `STAY_CLOSED` |
+| POST `/api/exits/close` | admin, `{ticket_code,plate,space_code,payment_confirmed:true}` + `Idempotency-Key` + regla de origen | 200 incluye tarifa, multa y total. 409 `STAY_CLOSED`/`IDEMPOTENCY_CONFLICT`, 422 sin confirmación, clave o espacio inválido |
 | GET `/salidas` | cookie celador/admin | HTML cotizacion/cierre; 401/403 |
-| POST `/salidas/cotizar` | formulario `ticket_code` + regla de origen | HTML con importe provisional |
-| POST `/salidas/cerrar` | formulario `ticket_code,payment_confirmed,idempotency_key` + regla de origen | HTML con cierre registrado |
+| POST `/salidas/cotizar` | formulario `ticket_code,plate,space_code` + regla de origen | HTML con tarifa, multa y total provisional |
+| POST `/salidas/cerrar` | formulario `ticket_code,plate,space_code,payment_confirmed,idempotency_key` + regla de origen | HTML con cierre y multa registrada |
 
-Cobro: 2 centavos/minuto desde `entered_at`, fraccion al minuto superior, aritmetica entera en microsegundos (D-06). Importe definitivo calculado en servidor al confirmar (`Clock.now()` capturado una vez); no se acepta importe del cliente. Cierre idempotente en transaccion con sesion nueva + `allocation_transaction`: crea 1 `Payment`, marca `closed/exited_at/paid_at` y libera `Allocation`. Misma `Idempotency-Key` + mismo ticket devuelve cierre original; misma clave con otro ticket -> 409 `IDEMPOTENCY_CONFLICT`; ticket ya cerrado devuelve su cierre original sin nuevo pago. Un ticket cerrado no afecta al nuevo ocupante del espacio.
+Cobro: 2 centavos/minuto desde `entered_at`, fraccion al minuto superior, aritmetica entera en microsegundos (D-06). Importe definitivo calculado en servidor al confirmar (`Clock.now()` capturado una vez); no se acepta importe del cliente. CAMBIO-01 exige placa y espacio observados: si alguno difiere de la estadía hallada por QR, se suma una multa única de 2,500 centavos. Cierre idempotente en transaccion con sesion nueva + `allocation_transaction`: crea 1 `Payment`, marca `closed/exited_at/paid_at` y libera `Allocation`. Misma `Idempotency-Key` + mismo ticket devuelve cierre original, incluida su multa; misma clave con otro ticket -> 409 `IDEMPOTENCY_CONFLICT`; ticket ya cerrado no afecta al nuevo ocupante del espacio.
 
 ## HU-05 - alerta de estadias largas (rama `Parte-de-AJ`, pendiente de revision/PR)
 

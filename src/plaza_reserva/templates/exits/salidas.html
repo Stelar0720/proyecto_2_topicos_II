@@ -3,23 +3,30 @@
 {% block content %}
 <p class="eyebrow">Salidas - {{ staff.role }} {{ staff.username }}</p>
 <h1>Cotización y cierre de estadía</h1>
-<p class="intro">Ingresa el código del ticket para consultar el importe provisional. El importe definitivo se calcula al confirmar el cierre; no se acepta importe del cliente.</p>
+<p class="intro">Escanea el QR e indica la placa y el espacio observados. Si no coinciden con la estadía, se aplica una multa de B/. 25.00 al cierre.</p>
 <p class="eyebrow">Consulta al {{ as_of }} - America/Panama</p>
 {% if error %}<p class="notice" role="alert"><strong>No se pudo completar la operación.</strong> {{ error }}</p>{% endif %}
 <form method="post" action="/salidas/cotizar">
  <label for="ticket_code">Código del ticket (QR o manual)</label>
  <input id="ticket_code" name="ticket_code" value="{{ code }}" maxlength="128" required autocomplete="off" spellcheck="false">
  <button type="button" data-qr-target="ticket_code">Escanear QR con cámara</button>
+ <label for="plate">Placa observada</label>
+ <input id="plate" name="plate" value="{{ plate }}" maxlength="12" required autocomplete="off" spellcheck="false">
+ <label for="space_code">Estacionamiento observado</label>
+ <input id="space_code" name="space_code" value="{{ space_code }}" maxlength="4" required placeholder="P001 o G001" autocomplete="off" spellcheck="false">
  <button type="submit">Calcular importe</button>
 </form>
 {% if quote %}
 <section class="grid" aria-label="Resultado de cotización">
  <article><h2>Placa</h2><p class="number">{{ quote.plate }}</p><p>Espacio {{ quote.space_code }}.</p></article>
- <article><h2>Importe provisional</h2><p class="number">B/. {{ '%.2f'|format(quote.amount_cents / 100) }}</p><p>{{ quote.amount_cents }} centavos ({{ quote.duration_seconds }} s desde entrada).</p></article>
+ <article><h2>Importe provisional</h2><p class="number">B/. {{ '%.2f'|format(quote.amount_cents / 100) }}</p><p>Estancia: B/. {{ '%.2f'|format(quote.base_amount_cents / 100) }}. Multa: B/. {{ '%.2f'|format(quote.mismatch_fee_cents / 100) }}.</p></article>
  <article><h2>Entrada</h2><p>{{ entered }}</p><p>Calculado al {{ as_of }} (America/Panama).</p></article>
 </section>
+{% if quote.mismatch_fee_cents %}<p class="notice" role="alert"><strong>Discordancia detectada.</strong> La placa o el estacionamiento no coincide con el QR; se aplicará multa de B/. 25.00.</p>{% endif %}
 <form method="post" action="/salidas/cerrar">
  <input type="hidden" name="ticket_code" value="{{ code }}">
+ <input type="hidden" name="plate" value="{{ plate }}">
+ <input type="hidden" name="space_code" value="{{ space_code }}">
  <input type="hidden" name="idempotency_key" value="">
  <label><input type="checkbox" name="payment_confirmed"> Confirmo que el pago manual fue recibido</label>
  <button type="submit">Confirmar pago y cerrar</button>
@@ -28,7 +35,7 @@
 {% if closed %}
 <section class="grid" aria-label="Cierre registrado">
  <article><h2>Placa</h2><p class="number">{{ closed.plate }}</p><p>Espacio {{ closed.space_code }} liberado.</p></article>
- <article><h2>Pagado</h2><p class="number">B/. {{ '%.2f'|format(closed.amount_cents / 100) }}</p><p>{{ closed.amount_cents }} centavos.</p></article>
+ <article><h2>Pagado</h2><p class="number">B/. {{ '%.2f'|format(closed.amount_cents / 100) }}</p><p>Estancia: B/. {{ '%.2f'|format(closed.base_amount_cents / 100) }}. Multa: B/. {{ '%.2f'|format(closed.mismatch_fee_cents / 100) }}.</p></article>
  <article><h2>Cierre</h2><p>Entrada: {{ closed_entered }}</p><p>Salida: {{ closed_exited }}</p></article>
 </section>
 <p class="notice">Cierre registrado. Un ticket cerrado no puede cerrar ni cobrar otra estadía.</p>

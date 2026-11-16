@@ -100,3 +100,11 @@ Solicitud del usuario: implementar HU-04 T-04A/B, HU-05 T-05A y QA-01 T-QA1/2 en
 | Documentacion | Actualizar contratos/traza | `specs/api.md`, `docs/traceability.md`, `docs/ai-log.md` actualizados con resultados reales | Sin inventar PR/revision/aprobacion |
 
 No hay PR creado/fusionado, ni issues/tablero actualizados, ni CI remoto verificado, ni aceptacion humana.
+
+## CAMBIO-01 - cotejo de QR, placa y espacio (2026-11-16)
+
+| Actividad | Solicitud | Resultado real | Decisión / origen |
+|---|---|---|---|
+| Cambio de requisito | Agregar placa y estacionamiento al escaneo de salida; aplicar multa si no coinciden | Usuario confirmó multa de B/.25.00; RF-11, BR-34–37, AC-18 y CAMBIO-01 actualizados antes de código | **Instrucción humana** confirmada en esta conversación |
+| Implementación | Persistir la multa en el cierre | Migración `0006`, `mismatch_fee_cents` en `payments`, cotización y cierre muestran tarifa, multa y total; reintento devuelve el pago original | Agente: multa solo por discordancia QR/placa/espacio; sin recuperación por placa ni incidencias |
+| Verificación | Ejecutar integración SQLite | `tests/integration/test_integration.py`: 4 passed; incluye multa de 2,500 centavos, persistencia, liberación e idempotencia | Resultado real; PostgreSQL y prueba HTTP autenticada siguen pendientes |

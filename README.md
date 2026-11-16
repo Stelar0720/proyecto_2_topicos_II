@@ -22,9 +22,9 @@ administrativo. Solo existen los roles `admin` y `client`.
 
 Sin sensores, barreras ni pasarela. El escáner QR usa la cámara del navegador cuando
 está disponible y siempre mantiene entrada manual como alternativa.
-Recargos B/.25.00, incidencias y recuperación por placa son ampliación prevista,
-no implementada ni presentada como un cambio inesperado ya ocurrido. El equipo
-aportará el cambio concreto a mitad del desarrollo con evidencia real. ALPR: fase 2.
+CAMBIO-01 coteja QR, placa y espacio en la salida: si placa o espacio declarado
+no coincide con la estadía, se registra una multa única de B/.25.00 junto al pago.
+Incidencias y recuperación por placa continúan fuera de alcance. ALPR: fase 2.
 
 ## Fuentes y método
 

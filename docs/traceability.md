@@ -104,3 +104,5 @@ Ejecutado el 2026-11-16 en esta sesion (agente, apoyo de Alex), resultados reale
 | Carreras integradas | ultimo preferencial (reserva) y ultimo general (walk-in) con ganador unico; cierre concurrente sin pagos duplicados (SQLite) |
 
 Limitaciones: no se creo PR ni se actualizaron issues/tablero; CI/publicacion coordinacion pendiente con Jack. Pruebas PostgreSQL pendientes en entorno con `TEST_POSTGRES_URL`.
+
+| OUT-03 | RF-11, BR-34–37 | CAMBIO-01 | `exits.py`, `payments.mismatch_fee_cents`, migración `0006`, salida | AC-18: integración SQLite ejecutada, 4 passed; pendiente prueba HTTP y PostgreSQL |

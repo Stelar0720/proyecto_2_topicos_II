@@ -19,7 +19,7 @@ vigilancia como actores definidos en `specs/outcomes.md`.
 - OUT-01: reservar o informar falta de cupo.
 - OUT-02: registrar ingreso sin duplicar placa ni espacio.
 - OUT-03/04: cobrar, cerrar y alertar estadías >24 h.
-- Excluidos: barreras, sensores, pasarela, multas y recuperación por placa.
+- Excluidos: barreras, sensores, pasarela y recuperación por placa.
 
 Notas: Señalar que el QR es una ayuda de entrada/salida y el código manual siempre
 es alternativa. Aclarar que 20/80 son capacidades, no disponibilidad en tiempo real.
@@ -30,6 +30,7 @@ es alternativa. Aclarar que 20/80 son capacidades, no disponibilidad en tiempo r
 - Un QR privado identifica la misma visita en entrada y salida.
 - Cobro: B/.0.02/minuto desde ingreso real; fracción redondea arriba.
 - Dashboard: gris disponible, verde reservado/ocupado, rojo alerta >24 h.
+- Discordancia QR/placa/espacio en salida: multa única de B/.25.00.
 
 Notas: Mencionar BR-01 a BR-33. La alerta no libera espacio ni aplica recargo. El
 ticket cerrado no puede afectar una nueva estadía.
@@ -72,12 +73,12 @@ humanas deben quedar registradas por el equipo.
 
 - Hoy: 79 pruebas recolectadas; integración SQLite 3/3 PASS.
 - Pruebas cubiertas hoy: último general, último preferencial y seed demo idempotente.
-- Cambio: roles admin/client + fecha manual + QR único + dashboard.
-- Traza: migraciones 0002-0005, BR-31/33, AC-15/17, API v0.3 y commit `7e7d1f2`.
+- Cambio: cotejo QR, placa y espacio; multa única de B/.25.00.
+- Traza: migración 0006, RF-11, BR-34/37, AC-18, salida y prueba integrada.
 
 Notas: La suite HTTP completa sigue pendiente: varios tests usan roles y payloads
-anteriores. La solicitud original fechada no está guardada como archivo independiente,
-por eso la trazabilidad del cambio es parcial. No afirmar 79 passed hoy.
+anteriores. La solicitud y confirmación del cambio fueron registradas en la
+especificación; aún falta una revisión humana. No afirmar 79 passed hoy.
 
 ## Diapositiva 8 - Limitaciones, siguiente paso y reparto de exposición
 

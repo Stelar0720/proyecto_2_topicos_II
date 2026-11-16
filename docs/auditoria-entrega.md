@@ -27,7 +27,7 @@ Git local.
 | QR y tickets cerrados | QR en `reservations.py`/`entries.py`, ticket digest en `exits.py`, pruebas presentes para reuso de ticket cerrado. | Parcial | Las pruebas correspondientes existen pero no se ejecutaron completas hoy; validar el lector de cámara en Chrome/Edge durante el ensayo de demo. |
 | Cobro y liberación | `exits.py`: 2 centavos/minuto, redondeo entero, pago idempotente y borrado de `Allocation`; AC-09 a AC-11 y pruebas presentes. | Parcial | Ejecutar `test_exits.py` actualizado y una prueba de UI autenticada. |
 | Alerta >24h | `alerts.py`: solo `open`, comparación estricta `entered_at < now-24h`; AC-12 y pruebas presentes. | Parcial | Ejecutar `test_alerts.py` actualizado a roles `admin`. |
-| Multas y recuperación de ticket | `README.md`, requisitos y AGENTS los excluyen; no hay modelo de multas/incidencias/recuperación por placa. | Completo | No presentarlo como funcionalidad existente. |
+| Multa por discordancia QR/placa/espacio | CAMBIO-01: RF-11, BR-34 a BR-37, AC-18, migración `0006`, `exits.py` y prueba integrada ejecutada. Registra 2,500 centavos una sola vez. Recuperación por placa sigue excluida. | Parcial | Ejecutar la ruta HTTP/formulario autenticada y actualizar la suite HTTP heredada. |
 | Migraciones y datos demo | Alembic `0001` a `0005`; `demo.py`; prueba `test_demo_seed_idempotent_and_scenarios` ejecutada hoy: PASS. | Parcial | Probar `alembic upgrade head` y demo sobre una BD descartable separada fuera de pytest; no usar la BD de usuarios. |
 | Pruebas automatizadas y CI | 79 pruebas recolectadas; workflow `.github/workflows/ci.yml` instala, compila y ejecuta pytest. Hoy pasaron 3 pruebas de integración y compilación; no se consultó una ejecución remota. | Parcial | Arreglar pruebas HTTP desalineadas y ejecutar suite completa en SQLite y PostgreSQL; revisar CI remoto. |
 | Registro de IA | `docs/ai-log.md` tiene columnas Actividad, Solicitud, Resultado real y Decisión. | Parcial | Añadir una entrada para esta auditoría y para cada decisión humana posterior; no convertir decisiones del agente en aprobación humana. |
@@ -83,8 +83,8 @@ Parcial y no como aceptación final.
 
 ## Pendientes priorizados antes de presentar
 
-1. Actualizar y ejecutar las pruebas HTTP para roles `admin/client` y el payload
-   actual; obtener resultado completo SQLite.
+1. Actualizar y ejecutar las pruebas HTTP para roles `admin/client`, el payload
+   actual y CAMBIO-01; obtener resultado completo SQLite.
 2. Ejecutar la misma suite contra una PostgreSQL descartable terminada en `_test`
    y revisar la ejecución de CI.
 3. Hacer un ensayo autenticado de reserva -> ingreso con mismo QR -> salida/pago;

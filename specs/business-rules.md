@@ -37,6 +37,10 @@ Los IDs BR-01–BR-30 conservan la numeración acordada por el equipo en la soli
 | BR-31 | Un mismo código QR identifica una visita: para una reserva se reutiliza al ingresar y al salir; un espontáneo recibe ese código al ingresar. |
 | BR-32 | Dashboard: gris disponible, verde reservado u ocupado normal, rojo estadía abierta de más de 24 horas. |
 | BR-33 | Todo espacio verde del dashboard abre su detalle operativo. Si tiene reserva o ticket recuperable, el administrador ve su QR y código; estos datos no se registran en logs ni se exponen a clientes. |
+| BR-34 | En salida el administrador declara placa y espacio observados, además del QR/código de ticket. |
+| BR-35 | Si placa o espacio declarado no coincide con la estadía abierta identificada por el QR, se aplica una multa única de B/.25.00 (2,500 centavos) en ese cierre. |
+| BR-36 | La cotización muestra por separado tarifa de estancia, multa por discordancia y total; el pago conserva el importe de multa. |
+| BR-37 | Un reintento del mismo cierre devuelve el pago original y no añade una segunda multa. Un código cerrado no multa ni modifica una estadía nueva. |
 
 ## Estados y transiciones (contrato para historias futuras)
 

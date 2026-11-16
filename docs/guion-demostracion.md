@@ -67,7 +67,8 @@ los valores entre corchetes por datos ficticios visibles solo para el ensayo.
 
 ## Cierre de la demo
 
-- Mostrar que multas, incidencias y recuperación por placa están fuera de alcance.
+- Mostrar que la multa CAMBIO-01 está implementada; incidencias y recuperación por
+  placa continúan fuera de alcance.
 - Indicar qué se ejecutó realmente en la auditoría: carrera de último preferencial,
   último general y seed demo idempotente en SQLite.
 - Declarar como pendiente la suite HTTP actualizada, PostgreSQL, CI remoto y la

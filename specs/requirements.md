@@ -16,6 +16,7 @@ se describen en README y cuya verificación real figura en `docs/testing.md`.
 | RF-08 | Autenticar personal de garita, vigilancia y administración | OUT-02/03/04 | BASE-02 |
 | RF-09 | Permitir a clientes demo programar una reserva con nombre, placa y fecha/hora seleccionada | OUT-01 | DEMO-UX |
 | RF-10 | Mostrar al administrador el estado visual de los 100 espacios y permitir escanear QR de entrada/salida | OUT-02/03/04 | DEMO-UX |
+| RF-11 | En salida, cotejar QR con placa y espacio declarados; si no coinciden, aplicar y registrar multa manual de B/.25.00 | OUT-03 | CAMBIO-01 |
 | RNF-01 | Evitar doble asignación, duplicación de placa y registros parciales bajo concurrencia | OUT-01/02/03 | HU-01/03/04 |
 | RNF-02 | QR/códigos impredecibles, sin datos personales; acceso privado no enumerable | OUT-01/02 | HU-01/02/03 |
 | RNF-03 | UTC persistido, America/Panama en vistas, reloj controlable, centavos enteros | OUT-03/04 | BASE-02/HU-04/05 |
@@ -28,8 +29,8 @@ Sin hora de salida contratada, cobro automático ni integración física. Para l
 las reservas admiten una fecha/hora pasada o futura elegida manualmente; la ventana
 de llegada dura 30 minutos desde esa hora. El cobro inicia al registrar el ingreso,
 no al programar la reserva.
-Ampliación prevista **sin implementar**: recargos B/.25.00 por espacio reservado ajeno
-y pérdida de ticket, incidencias por personal autorizado, recuperación por placa
-conservando entrada original y prevención de recargos duplicados. Se especificará
-el cambio concreto que aporte el equipo a mitad del desarrollo y se conservará su
-evidencia real. Reconocimiento automático de placas: propuesta de fase 2.
+Cambio de requisito CAMBIO-01 confirmado por el usuario el 2026-11-16: en salida
+se capturan placa y espacio observados junto al QR. Si alguno no coincide con la
+estadía identificada por el QR, se suma y registra una multa de B/.25.00. No se
+aplican multas por pérdida de ticket, recargos por otros motivos, incidencias ni
+recuperación por placa. Reconocimiento automático de placas: propuesta de fase 2.

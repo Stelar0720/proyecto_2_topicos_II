@@ -15,6 +15,7 @@ La preparación local no es actividad publicada ni revisión humana.
 | QA-01 | demo/integración, Alex | HU-01–05 | demo.py, tests/integration/; AC-14 y escenarios críticos | carga idempotente separada y evidencia reproducible |
 | ENTREGA-01 | ejecución/publicación-demo, Jack + Alex | QA-01 | README, CI, docs/testing.md | ensayo reproducible, PG probado, URL/evidencia real |
 | DEMO-UX | cuentas cliente, reserva programada, QR único y dashboard | HU-01–05 | migración sucesora, auth, reservas, garita, salida, dashboard; AC-15–17 | demo local con controles de roles y pruebas |
+| CAMBIO-01 | cotejo QR, placa y espacio con multa | HU-04 integrado | migración sucesora, `exits.py`, salida y pruebas; AC-18 | multa única persistida, visible y reintentable |
 
 Subtareas pequeñas **dentro de cada historia**, no entregas aisladas:
 
