@@ -252,3 +252,74 @@ def test_effective_availability_ignores_expired_without_writing(engine, clock):
         data = effective_availability(session, clock.value)
         assert data["preferential"]["available"] == 20
         assert session.scalar(select(Reservation.status)) == "pending"
+
+
+# --- T-02A/B · consulta y cancelación privadas (AC-04/08) --------------------
+
+
+def create(client, plate):
+    response = reserve(client, plate)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def lookup(client, code):
+    return client.post("/api/reservations/lookup", json={"private_code": code})
+
+
+def test_lookup_returns_only_the_own_reservation(client, engine):
+    seed(engine)
+    mine = create(client, "LOOK01")
+    create(client, "LOOK02")
+    response = lookup(client, mine["private_code"])
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["plate"] == "LOOK01"
+    assert body["space_code"] == "P001"
+    assert body["remaining_seconds"] == 30 * 60
+    assert "LOOK02" not in response.text
+    assert "token_hash" not in body
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_lookup_with_unknown_code_is_generic_and_enumerates_nothing(client, engine):
+    seed(engine)
+    for code in ("no-existe", "x" * 128):
+        response = lookup(client, code)
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "NOT_FOUND"
+        assert "LOOK" not in response.text
+    assert counts(engine) == (0, 0)
+
+
+def test_lookup_at_exact_expiry_reports_expired_without_writing(client, engine, clock):
+    seed(engine)
+    mine = create(client, "LOOK03")
+    clock.value += timedelta(minutes=30)
+    body = lookup(client, mine["private_code"]).json()
+    assert body["status"] == "expired"
+    assert body["remaining_seconds"] == 0
+    with Session(engine) as session:
+        assert session.scalar(select(Reservation.status)) == "pending"
+
+
+def test_lookup_view_reports_reservation_without_leaking_the_code(client, engine):
+    seed(engine)
+    mine = create(client, "VIEW02")
+    page = client.get("/mi-reserva")
+    assert page.status_code == 200
+    assert 'name="private_code"' in page.text
+    found = client.post("/mi-reserva", data={"private_code": mine["private_code"]}, headers=ORIGIN)
+    assert found.status_code == 200
+    assert "P001" in found.text and "VIEW02" in found.text
+    assert found.headers["cache-control"] == "no-store"
+    assert mine["private_code"] not in str(found.request.url)
+
+
+def test_lookup_view_with_unknown_code_is_generic(client, engine):
+    seed(engine)
+    page = client.post("/mi-reserva", data={"private_code": "otro-codigo"}, headers=ORIGIN)
+    assert page.status_code == 404
+    assert "No encontramos una reserva con ese código" in page.text
+    assert "P001" not in page.text
