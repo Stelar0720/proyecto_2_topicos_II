@@ -36,8 +36,14 @@ class LoginLimiter:
 
 
 def same_origin(request: Request):
-    if request.headers.get("origin") != str(request.base_url).rstrip("/"):
-        raise AppError(403, "ORIGIN_REQUIRED", "Se requiere el mismo origen")
+    if request.headers.get("origin") == str(request.base_url).rstrip("/"):
+        return
+    # `Referrer-Policy: no-referrer` hace que Chrome envíe `Origin: null` al enviar
+    # un formulario del mismo origen. `Sec-Fetch-Site` lo fija el navegador y una
+    # página ajena no puede falsificarlo, así que sirve como prueba equivalente.
+    if request.headers.get("sec-fetch-site") == "same-origin":
+        return
+    raise AppError(403, "ORIGIN_REQUIRED", "Se requiere el mismo origen")
 
 
 def staff_dict(staff: Staff):

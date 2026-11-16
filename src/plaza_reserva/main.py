@@ -16,6 +16,7 @@ from .clock import SystemClock
 from .config import Settings
 from .db import build_engine
 from .errors import AppError
+from .reservations import router as reservations_router, views as reservations_views
 from .security import hash_password, new_token
 
 ROOT = Path(__file__).parent
@@ -42,6 +43,8 @@ def create_app(settings=None, clock=None, engine=None):
     templates = Jinja2Templates(directory=str(ROOT / "templates"))
     app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
     app.include_router(router)
+    app.include_router(reservations_router)
+    app.include_router(reservations_views)
 
     def error_response(status, code, message):
         return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}},

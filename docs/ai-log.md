@@ -37,3 +37,24 @@ Para próximos incrementos agregar actividad/herramienta/solicitud/resultado/dec
 con comandos/URLs/hashes reales cuando existan y aprobación humana identificada.
 
 - 2026-11-15T17:13:35.757361-05:00: Publicación por script: https://github.com/Stelar0720/proyecto_2_topicos_II/pull/10. Rama base/plaza-reserva publicada desde su historial remoto; PR creado o reutilizado sin fusión. No equivale a ejecución de pruebas ni aceptación humana.
+
+## HU-01 · Apoyo a Francisco (2026-11-16)
+
+Herramienta: agente de codificación con shell Bash, GitHub CLI (`alosslessdev`),
+pytest, PostgreSQL 17 en contenedor descartable, Chromium automatizado, `zbarimg`
+y sondas HTTP propias. Solicitud del usuario (Francisco): revisar/implementar HU-01
+partiendo de una base real en `main`, sin fusionar PR ni inventar revisiones.
+
+| Actividad | Solicitud | Resultado real | Decisión / origen |
+|---|---|---|---|
+| Inspección inicial | Comprobar base integrada | `origin/main` solo con `README.md`; PR #10 en DRAFT | Agente: no crear rama de historia; limitar a revisión |
+| Revisión BASE-02 | Revisar sin fusionar | `pytest` 24 passed con SQLite+PostgreSQL local; CI del PR verde; smoke uvicorn; sonda de bloqueo serializa en ambos motores | Agente: comentario de revisión en PR #10, sin aprobación |
+| Integración | El usuario indicó que el PR estaba fusionado | Verificado: PR #10 MERGED, merge commit `2fc93de`, `2026-11-16T01:06:29Z` | **Confirmación humana (Francisco)**; no la ejecutó el agente |
+| Defecto de base | Formulario HTML bloqueado | Sonda: `Referrer-Policy: no-referrer` ⇒ Chrome envía `Origin: null` en POST del mismo origen; `same_origin` respondía 403 | Agente: aceptar `Sec-Fetch-Site: same-origin`; requiere revisión de Jack por ser archivo compartido |
+| HU-01 | Implementar T-01A/B/C | `reservations.py`, vistas, pruebas y commits `T-01A`/`T-01B`/`T-01C` | Agente: D-03/D-04 aplicadas como propuestas, marcadas pendientes |
+| Verificación | Ejecutar pruebas reales | 33 passed SQLite; 62 passed con PostgreSQL 17; QR decodificado con `zbarimg`; vista ejercitada en Chromium | Agente: resultados de esta sesión, sin aceptación humana |
+| Dependencias | No copiar de otros proyectos | Añadidas `segno 1.6.6` (QR SVG, sin dependencias) y `python-multipart 0.0.33` (formularios FastAPI) | Agente: justificar en PR; `pyproject.toml` es compartido |
+
+No hay aprobación de Product/Spec para D-03/D-04, ni revisión del PR de HU-01, ni
+validación con un negocio real. Las tareas T-01A–C quedan implementadas y probadas,
+no "Terminadas".
