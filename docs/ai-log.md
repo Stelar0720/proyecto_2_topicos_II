@@ -58,3 +58,11 @@ partiendo de una base real en `main`, sin fusionar PR ni inventar revisiones.
 No hay aprobación de Product/Spec para D-03/D-04, ni revisión del PR de HU-01, ni
 validación con un negocio real. Las tareas T-01A–C quedan implementadas y probadas,
 no "Terminadas".
+
+## HU-02 · Consulta y cancelación privadas (2026-11-16)
+
+| Actividad | Solicitud | Resultado real | Decisión / origen |
+|---|---|---|---|
+| HU-02 | Continuar con T-02A/B tras HU-01 | `lookup`/`cancel` en `reservations.py`, vistas `/mi-reserva`, pruebas privadas; commits T-02A y T-02B en rama apilada | Agente: base `feature/hu-01-reservas` porque el PR de HU-01 sigue en revisión; no se publica aún |
+| Cancelación repetida | D-05 propuesta | Repetir devuelve el mismo estado terminal; usada → 409; vencida informa `expired` | Agente aplica la propuesta de `docs/decisions.md`; sin confirmación de Product/Spec |
+| Verificación | Pruebas y vista reales | 44 passed SQLite y 84 con PostgreSQL 17; Chromium: consulta vigente, cancelación y estado terminal; disponibilidad vuelve a 20 | Agente: resultados de esta sesión |

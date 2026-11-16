@@ -18,6 +18,14 @@
  <article><h2>Espacio</h2><p class="number">{{ reservation.space_code }}</p>{% if reservation.status == 'pending' %}<p>Preferencial retenido para esta reserva.</p>{% else %}<p>Preferencial asociado a la reserva; ya no está retenido por ella.</p>{% endif %}</article>
  <article><h2>Horas</h2><p>Creada {{ created }}.</p><p>Vence {{ expires }}.</p>{% if cancelled %}<p>Cancelada {{ cancelled }}.</p>{% endif %}</article>
 </section>
+{% if reservation.status == 'pending' %}
+<form method="post" action="/mi-reserva/cancelar">
+ <input type="hidden" name="private_code" value="{{ code }}">
+ <button type="submit">Cancelar mi reserva</button>
+ <p>Cancelar libera el espacio de inmediato. La página no se guarda en caché y el código solo viaja en el cuerpo de la petición.</p>
+</form>
+{% else %}
 <p><a class="button" href="/reservar">Hacer otra reserva</a></p>
+{% endif %}
 <p class="notice">Placa <strong>{{ reservation.plate }}</strong> · El código privado nunca se muestra completo en esta consulta y no se registra en los logs.</p>
 {% endblock %}
