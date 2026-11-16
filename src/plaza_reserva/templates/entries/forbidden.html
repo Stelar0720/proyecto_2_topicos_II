@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Rol sin acceso a garita · Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Garita · {{ staff.role }}</p>
+<h1>Tu rol no registra ingresos</h1>
+<p class="intro">La cuenta {{ staff.username }} no tiene permiso para registrar entradas. La garita la operan celador y administración; vigilancia consulta sus propias vistas.</p>
+<p><a class="button" href="/personal">Volver al panel</a></p>
+{% endblock %}
