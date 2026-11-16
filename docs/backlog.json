@@ -1,0 +1,121 @@
+[
+  {
+    "id": "BASE-01",
+    "title": "outcomes y especificaciones",
+    "owner": "Jack",
+    "label": "base",
+    "dependencies": "Sin dependencias técnicas; leer ambas fuentes",
+    "criteria": [
+      "AC-S01",
+      "AC-B06"
+    ]
+  },
+  {
+    "id": "BASE-02",
+    "title": "esqueleto y contratos compartidos",
+    "owner": "Jack",
+    "label": "base",
+    "dependencies": "BASE-01",
+    "criteria": [
+      "AC-B01",
+      "AC-B02",
+      "AC-B03",
+      "AC-B04",
+      "AC-B05",
+      "AC-B06"
+    ]
+  },
+  {
+    "id": "HU-01",
+    "title": "disponibilidad y reserva preferencial con QR",
+    "owner": "Francisco",
+    "label": "historia",
+    "dependencies": "BASE-02 integrado en main; revisar D-03/D-04",
+    "criteria": [
+      "AC-01",
+      "AC-02",
+      "AC-03",
+      "AC-07",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "HU-02",
+    "title": "consulta y cancelación privada",
+    "owner": "Francisco",
+    "label": "historia",
+    "dependencies": "HU-01 integrado; revisar D-05",
+    "criteria": [
+      "AC-04",
+      "AC-08",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "HU-03",
+    "title": "ingreso con reserva o espontáneo y ticket",
+    "owner": "Francisco",
+    "label": "historia",
+    "dependencies": "HU-01/HU-02 integrados",
+    "criteria": [
+      "AC-05",
+      "AC-06",
+      "AC-07",
+      "AC-08",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "HU-04",
+    "title": "salida, cálculo por minuto y pago manual",
+    "owner": "Alex",
+    "label": "historia",
+    "dependencies": "HU-03 integrado; revisar D-06",
+    "criteria": [
+      "AC-09",
+      "AC-10",
+      "AC-11",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "HU-05",
+    "title": "alerta de más de 24 horas",
+    "owner": "Alex",
+    "label": "historia",
+    "dependencies": "HU-03 integrado",
+    "criteria": [
+      "AC-12",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "QA-01",
+    "title": "escenarios demo y pruebas de integración",
+    "owner": "Alex",
+    "label": "qa",
+    "dependencies": "HU-01–HU-05 integradas con pruebas propias",
+    "criteria": [
+      "AC-14",
+      "AC-02",
+      "AC-05",
+      "AC-06",
+      "AC-10",
+      "AC-12",
+      "AC-13"
+    ]
+  },
+  {
+    "id": "ENTREGA-01",
+    "title": "ejecución reproducible y publicación/demo",
+    "owner": "Jack con Alex",
+    "label": "entrega",
+    "dependencies": "QA-01; decisiones de hosting/seguridad y revisión humana",
+    "criteria": [
+      "AC-B01",
+      "AC-B02",
+      "AC-B03",
+      "AC-14"
+    ]
+  }
+]

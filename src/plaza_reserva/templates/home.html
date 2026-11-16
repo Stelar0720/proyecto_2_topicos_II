@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<p class="eyebrow">Tópicos Especiales II · Proyecto 2</p>
+<h1>Un lugar para llegar.<br>Una base para construir.</h1>
+<p class="intro">Plaza Reserva prepara un registro consistente de reservas, ingresos y salidas para una plaza comercial ficticia.</p>
+<p class="notice"><strong>Base inicial.</strong> Las reservas, ingresos, cobros y alertas todavía están pendientes. Esta página no acepta operaciones de estacionamiento.</p>
+<section class="grid" aria-label="Distribución planificada">
+ <article><p class="number">20</p><h2>Preferenciales</h2><p>P001–P020 · Para reservas de llegada próxima.</p><span class="badge">Reserva y QR pendientes</span></article>
+ <article><p class="number">80</p><h2>Generales</h2><p>G001–G080 · Para ingresos espontáneos.</p><span class="badge">Ingreso y ticket pendientes</span></article>
+ <article><p class="number">24/7</p><h2>Operación continua</h2><p>Control de acceso y placas manuales.</p><span class="badge">Salida y alertas pendientes</span></article>
+</section>
+<p><a class="button" href="/acceso">Acceso del personal</a></p>
+{% endblock %}
