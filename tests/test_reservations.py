@@ -1,5 +1,6 @@
-"""T-01B · Reserva transaccional, QR y errores (AC-01/07)."""
+"""HU-01 · AC-01/02/03/07/13 sobre disponibilidad y reserva preferencial."""
 import re
+import threading
 from datetime import timedelta
 
 import pytest
@@ -7,8 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from plaza_reserva.cli import seed_spaces
+from plaza_reserva.errors import AppError
 from plaza_reserva.models import Allocation, Reservation, Space, Stay
-from plaza_reserva.reservations import effective_availability
+from plaza_reserva.reservations import create_reservation, effective_availability
 from plaza_reserva.security import new_token, token_digest
 
 ORIGIN = {"Origin": "http://testserver"}
@@ -124,6 +126,56 @@ def test_category_full_leaves_no_partial_records(client, engine):
     assert payload["general"]["available"] == 80
 
 
+def run_concurrently(calls):
+    barrier = threading.Barrier(len(calls))
+    results = []
+
+    def wrap(call):
+        barrier.wait()
+        try:
+            results.append(("ok", call()))
+        except AppError as exc:
+            results.append(("error", exc.code))
+
+    threads = [threading.Thread(target=wrap, args=(call,)) for call in calls]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    assert not any(thread.is_alive() for thread in threads)
+    return results
+
+
+def reserve_with_new_session(engine, clock, plate):
+    def call():
+        with Session(engine) as session:
+            return create_reservation(session, clock.value, plate)
+    return call
+
+
+def test_simultaneous_requests_for_last_preferential_single_winner(client, engine, clock):
+    seed(engine)
+    fill_preferential(client, 19)
+    results = run_concurrently([
+        reserve_with_new_session(engine, clock, "RACE01"),
+        reserve_with_new_session(engine, clock, "RACE02"),
+    ])
+    assert sorted(result[0] for result in results) == ["error", "ok"]
+    assert [result[1] for result in results if result[0] == "error"] == ["CATEGORY_FULL"]
+    assert counts(engine) == (20, 20)
+
+
+def test_simultaneous_requests_same_plate_single_reservation(engine, clock):
+    seed(engine)
+    results = run_concurrently([
+        reserve_with_new_session(engine, clock, "SAMEP1"),
+        reserve_with_new_session(engine, clock, "SAMEP1"),
+    ])
+    assert sorted(result[0] for result in results) == ["error", "ok"]
+    assert [result[1] for result in results if result[0] == "error"] == ["PLATE_BUSY"]
+    assert counts(engine) == (1, 1)
+
+
 def test_mutations_require_same_origin(client, engine):
     seed(engine)
     assert client.post("/api/reservations", json={"plate": "ORIG01"}).status_code == 403
@@ -133,6 +185,22 @@ def test_mutations_require_same_origin(client, engine):
     assert foreign.json()["error"]["code"] == "ORIGIN_REQUIRED"
     assert client.post("/reservar", data={"plate": "ORIG01"}).status_code == 403
     assert counts(engine) == (0, 0)
+
+
+def test_form_post_accepts_browser_same_origin_signal(client, engine):
+    """Chrome envía `Origin: null` por `Referrer-Policy: no-referrer`; Sec-Fetch-Site decide."""
+    seed(engine)
+    chrome_form = {"Origin": "null", "Sec-Fetch-Site": "same-origin"}
+    page = client.post("/reservar", data={"plate": "FORM01"}, headers=chrome_form)
+    assert page.status_code == 200, page.text
+    assert CODE_PATTERN.search(page.text)
+    cross_site = client.post("/api/reservations", json={"plate": "FORM02"},
+                             headers={"Origin": "null", "Sec-Fetch-Site": "cross-site"})
+    assert cross_site.status_code == 403
+    null_only = client.post("/api/reservations", json={"plate": "FORM03"},
+                            headers={"Origin": "null"})
+    assert null_only.status_code == 403
+    assert counts(engine) == (1, 1)
 
 
 def test_availability_view_shows_capacity_and_form(client, engine):
