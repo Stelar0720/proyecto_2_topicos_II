@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from .auth import current_staff, require_roles, same_origin
 from .db import allocation_transaction, get_session
 from .errors import AppError
-from .models import Allocation, Reservation, Staff, Stay
+from .models import Allocation, Reservation, Space, Staff, Stay
 from .reservations import (effective_availability, effective_status, local_time,
                            normalize_plate, qr_svg, release_expired)
 from .security import new_token, token_digest
@@ -97,6 +97,45 @@ def enter_with_reservation(session: Session, now: datetime, raw_code: str,
     return payload
 
 
+def enter_walk_in(session: Session, now: datetime, raw_plate: str) -> dict:
+    """Asigna un general libre a un espontáneo; nunca un preferencial."""
+    plate = normalize_plate(raw_plate)
+    try:
+        with allocation_transaction(session):
+            release_expired(session, now)
+            if session.scalar(select(exists().where(
+                    Stay.plate == plate, Stay.status == "open"))):
+                raise AppError(409, "PLATE_BUSY", "La placa ya tiene una estadía abierta")
+            if session.scalar(select(exists().where(
+                    Reservation.plate == plate, Reservation.status == "pending"))):
+                raise AppError(409, "PLATE_BUSY", "La placa tiene una reserva pendiente")
+            space_code = session.scalar(
+                select(Space.code)
+                .where(Space.category == "general",
+                       ~exists().where(Allocation.space_id == Space.code))
+                .order_by(Space.code)
+                .limit(1))
+            if space_code is None:
+                raise AppError(409, "CATEGORY_FULL", "No quedan espacios generales disponibles")
+            ticket_code = new_token()
+            stay = Stay(plate=plate, space_id=space_code, reservation_id=None,
+                        ticket_hash=token_digest(ticket_code), status="open", entered_at=now)
+            session.add(stay)
+            session.flush()
+            session.add(Allocation(space_id=space_code, plate=plate, stay_id=stay.id))
+            payload = _stay_payload(stay, ticket_code, now)
+    except IntegrityError:
+        raise AppError(409, "PLATE_BUSY",
+                       "La placa o el espacio ya están asignados") from None
+    except OperationalError:
+        raise AppError(503, "DATABASE_BUSY", "La base está ocupada; vuelve a intentarlo") from None
+    return payload
+
+
+class EntryBody(BaseModel):
+    plate: str = Field(min_length=1, max_length=40)
+
+
 class ReservationEntryBody(BaseModel):
     private_code: str = Field(min_length=1, max_length=128)
     plate: str = Field(min_length=1, max_length=40)
@@ -114,6 +153,15 @@ def entry_reservation(body: ReservationEntryBody, request: Request, response: Re
     with _open_session(request) as session:
         payload = enter_with_reservation(session, request.app.state.clock.now(),
                                          body.private_code, body.plate)
+    _no_store(response)
+    return payload
+
+
+@router.post("/entries/walk-in", status_code=201, dependencies=[Depends(same_origin)])
+def entry_walk_in(body: EntryBody, request: Request, response: Response,
+                  staff: Staff = Depends(require_roles(*GARITA_ROLES))):
+    with _open_session(request) as session:
+        payload = enter_walk_in(session, request.app.state.clock.now(), body.plate)
     _no_store(response)
     return payload
 
@@ -182,4 +230,24 @@ def garita_reservation(request: Request, private_code: str = Form(default=""),
             raise
         return _garita_page(request, session, staff, error=exc.message,
                             status=exc.status, code=private_code, plate=plate)
+    return _ticket_page(request, payload)
+
+
+@views.post("/garita/espontaneo", response_class=HTMLResponse,
+            dependencies=[Depends(same_origin)])
+def garita_walk_in(request: Request, plate: str = Form(default=""),
+                   session: Session = Depends(get_session)):
+    staff = _optional_staff(request, session)
+    denied = _denied(request, staff)
+    if denied is not None:
+        return denied
+    now = request.app.state.clock.now()
+    try:
+        with _open_session(request) as assignment:
+            payload = enter_walk_in(assignment, now, plate)
+    except AppError as exc:
+        if exc.status not in {409, 422}:
+            raise
+        return _garita_page(request, session, staff, error=exc.message,
+                            status=exc.status, plate=plate)
     return _ticket_page(request, payload)

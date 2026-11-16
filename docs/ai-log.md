@@ -66,3 +66,12 @@ no "Terminadas".
 | HU-02 | Continuar con T-02A/B tras HU-01 | `lookup`/`cancel` en `reservations.py`, vistas `/mi-reserva`, pruebas privadas; commits T-02A y T-02B en rama apilada | Agente: base `feature/hu-01-reservas` porque el PR de HU-01 sigue en revisión; no se publica aún |
 | Cancelación repetida | D-05 propuesta | Repetir devuelve el mismo estado terminal; usada → 409; vencida informa `expired` | Agente aplica la propuesta de `docs/decisions.md`; sin confirmación de Product/Spec |
 | Verificación | Pruebas y vista reales | 44 passed SQLite y 84 con PostgreSQL 17; Chromium: consulta vigente, cancelación y estado terminal; disponibilidad vuelve a 20 | Agente: resultados de esta sesión |
+
+## HU-03 · Ingreso con reserva y espontáneo (2026-11-16)
+
+| Actividad | Solicitud | Resultado real | Decisión / origen |
+|---|---|---|---|
+| Integración | Usuario pidió continuar con la cadena | PR #11 fusionado con `--merge` (`daeed78`), autorizado con "hazlo"; rama de HU-02 rebasada y PR #12 abierto | **Instrucción humana**; el agente ejecutó el merge pedido |
+| HU-03 | Implementar T-03A/B | `entries.py`, `templates/entries/`, `static/entries.js`, pruebas; commits T-03A y T-03B | Agente: `require_roles` para API y páginas propias 401/403 en vistas |
+| Sesión nueva | Asignación con personal autenticado | `allocation_transaction` rechazó la sesión de la petición porque ya leyó la sesión del personal; se abre sesión nueva para la asignación | Agente: mantiene la regla del handoff; probado en pruebas |
+| Verificación | Pruebas y navegador | 60 passed SQLite, 116 con PostgreSQL 17; Chromium: ingreso espontáneo G001 con QR decodificado por `zbarimg`, ingreso con reserva en P001, placa duplicada rechazada | Agente: resultados de esta sesión |

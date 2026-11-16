@@ -1,11 +1,14 @@
-"""T-03A · Ingreso con reserva convertido en estadía (AC-05/08/13)."""
+"""HU-03 · AC-05/06/07/08/13 sobre ingreso con reserva y espontáneo."""
 import re
+import threading
 from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from plaza_reserva.cli import create_staff, seed_spaces
+from plaza_reserva.entries import enter_walk_in
+from plaza_reserva.errors import AppError
 from plaza_reserva.models import Allocation, Reservation, Stay
 from plaza_reserva.security import new_token, token_digest
 
@@ -152,6 +155,101 @@ def test_entry_with_unknown_code_is_generic(client, engine, clock):
     assert counts(engine) == (0, 0)
 
 
+def test_walk_in_assigns_general_and_never_preferential(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    response = walk_in(client, "walk-01")
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["space_code"] == "G001"
+    assert body["plate"] == "WALK-01"
+    with Session(engine) as session:
+        stay = session.scalar(select(Stay))
+        allocation = session.get(Allocation, "G001")
+        assert stay.reservation_id is None
+        assert allocation.stay_id == stay.id
+        assert stay.ticket_hash == token_digest(body["ticket_code"])
+    availability = client.get("/api/availability").json()
+    assert availability["general"]["available"] == 79
+    assert availability["preferential"]["available"] == 20
+
+
+def test_walk_in_rejects_plate_with_pending_reservation(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    reserve(client, "ENTR07")
+    response = walk_in(client, "ENTR07")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PLATE_BUSY"
+    assert counts(engine) == (0, 1)
+
+
+def test_walk_in_rejects_plate_with_open_stay(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    assert walk_in(client, "ENTR08").status_code == 201
+    response = walk_in(client, "ENTR08")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PLATE_BUSY"
+    assert counts(engine) == (1, 1)
+
+
+def test_full_general_category_rejects_without_partial_rows(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    fill_general(engine, clock, 80)
+    response = walk_in(client, "FULL01")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CATEGORY_FULL"
+    assert counts(engine) == (80, 80)
+
+
+def test_simultaneous_walk_ins_for_last_general_single_winner(engine, clock):
+    seed(engine)
+    fill_general(engine, clock, 79)
+    barrier = threading.Barrier(2)
+    results = []
+
+    def worker(plate):
+        barrier.wait()
+        try:
+            with Session(engine) as session:
+                results.append(("ok", enter_walk_in(session, clock.value, plate)["space_code"]))
+        except AppError as exc:
+            results.append(("error", exc.code))
+
+    threads = [threading.Thread(target=worker, args=(plate,)) for plate in ("RACE01", "RACE02")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    assert not any(thread.is_alive() for thread in threads)
+    assert sorted(result[0] for result in results) == ["error", "ok"]
+    assert [result[1] for result in results if result[0] == "error"] == ["CATEGORY_FULL"]
+    assert counts(engine) == (80, 80)
+
+
+def test_entry_endpoints_require_staff_and_role(client, engine, clock):
+    seed(engine)
+    reservation = reserve(client, "ENTR09")
+    unauthenticated = entry_reservation(client, reservation["private_code"], "ENTR09")
+    assert unauthenticated.status_code == 401
+    login(client, engine, clock, username="vigia1", role="vigilancia")
+    forbidden = walk_in(client, "ENTR09")
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error"]["code"] == "FORBIDDEN"
+    assert counts(engine) == (0, 1)
+
+
+def test_entry_mutations_require_same_origin(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    response = client.post("/api/entries/walk-in", json={"plate": "ORIG09"})
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "ORIGIN_REQUIRED"
+    assert counts(engine) == (0, 0)
+
+
 def test_garita_view_requires_staff_role(client, engine, clock):
     seed(engine)
     page = client.get("/garita")
@@ -162,6 +260,26 @@ def test_garita_view_requires_staff_role(client, engine, clock):
     page = client.get("/garita")
     assert page.status_code == 403
     assert "no registra ingresos" in page.text
+
+
+def test_garita_form_issues_printable_ticket(client, engine, clock):
+    seed(engine)
+    login(client, engine, clock)
+    page = client.get("/garita")
+    assert page.status_code == 200
+    assert 'action="/garita/reserva"' in page.text
+    assert 'action="/garita/espontaneo"' in page.text
+    ticket = client.post("/garita/espontaneo", data={"plate": "TICK09"}, headers=ORIGIN)
+    assert ticket.status_code == 200
+    assert ticket.headers["cache-control"] == "no-store"
+    assert "G001" in ticket.text and "TICK09" in ticket.text
+    assert "print-ticket" in ticket.text
+    match = CODE_PATTERN.search(ticket.text)
+    assert match, ticket.text
+    svg = re.search(r"<svg.*?</svg>", ticket.text, re.S).group(0)
+    assert "TICK09" not in svg
+    with Session(engine) as session:
+        assert session.scalar(select(Stay.ticket_hash)) == token_digest(match.group(1))
 
 
 def test_garita_form_reports_reservation_conflict(client, engine, clock):
