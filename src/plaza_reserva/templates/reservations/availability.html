@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Reservar espacio preferencial · Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Reserva de llegada próxima</p>
+<h1>Reserva tu espacio preferencial</h1>
+<p class="intro">El sistema retiene un espacio preferencial durante 30 minutos desde la creación de la reserva. La llegada a garita debe ocurrir dentro de ese plazo.</p>
+<section class="grid" aria-label="Disponibilidad efectiva al {{ as_of }}">
+ <article><p class="number">{{ availability.preferential.available }}</p><h2>Preferenciales libres</h2><p>de {{ availability.preferential.total }} · P001–P020</p></article>
+ <article><p class="number">{{ availability.general.available }}</p><h2>Generales libres</h2><p>de {{ availability.general.total }} · G001–G080</p></article>
+ <article><p class="number">30</p><h2>Minutos de retención</h2><p>Sin franjas futuras ni hora de salida contratada.</p></article>
+</section>
+<p class="eyebrow">Disponibilidad al {{ as_of }} · America/Panama</p>
+{% if error %}<p class="notice" role="alert"><strong>No se pudo reservar.</strong> {{ error }}</p>{% endif %}
+{% if availability.preferential.available == 0 %}
+<p class="notice">No quedan espacios preferenciales libres en este momento. Los generales se asignan solo en garita a ingresos espontáneos.</p>
+{% else %}
+<form method="post" action="/reservar">
+ <label for="plate">Placa del vehículo</label>
+ <input id="plate" name="plate" value="{{ plate }}" maxlength="12" required autocomplete="off" aria-describedby="plate-help">
+ <p id="plate-help">De 2 a 12 caracteres: letras, números o guion. Se guarda en mayúsculas y sin espacios exteriores.</p>
+ <button type="submit">Reservar 30 minutos</button>
+</form>
+{% endif %}
+<p class="notice">La consulta y la cancelación con código privado llegan con HU-02. Conserve el código y el QR que se muestran al reservar: no se repiten.</p>
+{% endblock %}
