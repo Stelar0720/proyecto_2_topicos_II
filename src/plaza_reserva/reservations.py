@@ -161,7 +161,7 @@ def create_reservation(session: Session, now: datetime, raw_name: str = "Cliente
                                "No quedan espacios preferenciales disponibles")
             private_code = new_token()
             reservation = Reservation(plate=plate, customer_name=customer_name, space_id=space_code, status="pending",
-                                      token_hash=token_digest(private_code),
+                                      token_hash=token_digest(private_code), access_code=private_code,
                                       created_at=now, scheduled_at=scheduled_at, expires_at=expires_at)
             session.add(reservation)
             session.flush()

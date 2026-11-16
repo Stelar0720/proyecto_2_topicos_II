@@ -85,7 +85,8 @@ def enter_with_reservation(session: Session, now: datetime, raw_code: str,
             ticket_code = code
             stay = Stay(plate=plate, space_id=reservation.space_id,
                         reservation_id=reservation.id,
-                        ticket_hash=token_digest(ticket_code), status="open", entered_at=now)
+                        ticket_hash=token_digest(ticket_code), access_code=ticket_code,
+                        status="open", entered_at=now)
             session.add(stay)
             session.flush()
             session.add(Allocation(space_id=reservation.space_id, plate=plate, stay_id=stay.id))
@@ -122,7 +123,8 @@ def enter_walk_in(session: Session, now: datetime, raw_plate: str) -> dict:
                 raise AppError(409, "CATEGORY_FULL", "No quedan espacios generales disponibles")
             ticket_code = new_token()
             stay = Stay(plate=plate, space_id=space_code, reservation_id=None,
-                        ticket_hash=token_digest(ticket_code), status="open", entered_at=now)
+                        ticket_hash=token_digest(ticket_code), access_code=ticket_code,
+                        status="open", entered_at=now)
             session.add(stay)
             session.flush()
             session.add(Allocation(space_id=space_code, plate=plate, stay_id=stay.id))

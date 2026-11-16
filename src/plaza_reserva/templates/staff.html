@@ -3,8 +3,17 @@
 <p class="eyebrow">Sesión de {{ staff.role }}</p><h1>Hola, {{ staff.username }}.</h1>
 <p>Estado operativo de los 100 espacios. Gris: disponible; verde: reservado u ocupado; rojo: alerta por más de 24 horas.</p>
 <section class="parking-board" aria-label="Estado de estacionamientos">
-{% for row in rows %}<div class="parking-row">{% for space in row %}<span class="space-card {{ space.state }}">{{ space.code }}</span>{% endfor %}</div>{% endfor %}
+{% for row in rows %}<div class="parking-row">{% for space in row %}{% if space.detail %}<button class="space-card {{ space.state }}" type="button" data-booking="{{ space.code }}">{{ space.code }}</button>{% else %}<span class="space-card {{ space.state }}">{{ space.code }}</span>{% endif %}{% endfor %}</div>{% endfor %}
 </section>
+<dialog id="booking-dialog" class="booking-dialog" aria-labelledby="booking-title">
+ <button class="dialog-close" type="button" data-dialog-close aria-label="Cerrar">×</button>
+ {% for row in rows %}{% for space in row %}{% if space.detail %}<article id="booking-{{ space.code }}" hidden>
+  <p class="eyebrow">{{ space.detail.kind }}</p><h2 id="booking-title">Espacio {{ space.code }}</h2>
+  <dl class="ticket-details"><div><dt>Cliente</dt><dd>{{ space.detail.customer_name }}</dd></div><div><dt>Placa</dt><dd>{{ space.detail.plate }}</dd></div>{% if space.detail.scheduled %}<div><dt>Hora reservada</dt><dd>{{ space.detail.scheduled }}</dd></div>{% endif %}{% if space.detail.entered %}<div><dt>Hora de ingreso</dt><dd>{{ space.detail.entered }}</dd></div>{% endif %}</dl>
+  {% if space.detail.code %}<div class="ticket-qr">{{ qr_svg(space.detail.code)|safe }}</div><p class="ticket-qr-note">QR y código de esta visita</p><code class="booking-code">{{ space.detail.code }}</code>{% else %}<p class="notice">Este registro fue creado antes del panel rápido; no conserva un código recuperable.</p>{% endif %}
+ </article>{% endif %}{% endfor %}{% endfor %}
+</dialog>
 <section class="grid"><article><h2>Garita</h2><p>Ingresos con reserva y espontáneos: <a href="/garita">registrar ingreso</a>.</p></article><article><h2>Salidas</h2><p><a href="/salidas">Escanear ticket, calcular y confirmar cobro</a>.</p></article><article><h2>Vigilancia</h2><p><a href="/vigilancia">Revisar alertas de estadías abiertas</a>.</p></article></section>
 <button id="logout" type="button">Cerrar sesión</button><p id="logout-message" role="status"></p>
+<script src="{{ url_for('static', path='/staff.js') }}" defer></script>
 {% endblock %}

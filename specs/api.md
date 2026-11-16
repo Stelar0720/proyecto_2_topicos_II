@@ -63,6 +63,9 @@ escribir el código manualmente.
 | GET `/personal` | cookie `admin` | dashboard de 100 espacios |
 | GET `/api/dashboard/spaces` | cookie `admin` | estado gris/verde/rojo de P001–P020 y G001–G080 |
 
+La vista protegida `/personal` permite abrir el detalle de cualquier espacio verde;
+incluye la información de reserva o estadía y, cuando corresponde, su QR y código.
+
 ## HU-01 · disponibilidad y reserva (en `main`, PR #11)
 
 | Método / ruta | Entrada | Salida |

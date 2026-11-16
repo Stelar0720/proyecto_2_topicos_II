@@ -23,6 +23,7 @@ from .errors import AppError
 from .exits import router as exits_router, views as exits_views
 from .alerts import router as alerts_router, views as alerts_views
 from .reservations import router as reservations_router, views as reservations_views
+from .reservations import local_time, qr_svg
 from .security import hash_password, new_token
 
 ROOT = Path(__file__).parent
@@ -117,15 +118,30 @@ def create_app(settings=None, clock=None, engine=None):
             spaces = connection.execute(text("SELECT code FROM spaces ORDER BY code")).scalars().all()
         with Session(engine) as session:
             open_stays = {s.space_id: s for s in session.query(Stay).filter(Stay.status == "open")}
-            reserved = {r.space_id for r in session.query(Reservation).filter(
+            active_reservations = session.query(Reservation).filter(
                 Reservation.status == "pending", Reservation.scheduled_at <= now,
-                Reservation.expires_at > now)}
+                Reservation.expires_at > now).all()
+            reserved = {reservation.space_id for reservation in active_reservations}
+            reservation_by_space = {reservation.space_id: reservation for reservation in active_reservations}
+            reservation_by_id = {reservation.id: reservation for reservation in session.query(Reservation).all()}
         cards = []
         for code in spaces:
             stay = open_stays.get(code)
+            reservation = reservation_by_id.get(stay.reservation_id) if stay and stay.reservation_id else reservation_by_space.get(code)
             state = "alert" if stay and now - stay.entered_at > timedelta(hours=24) else "occupied" if stay or code in reserved else "available"
-            cards.append({"code": code, "state": state})
-        return templates.TemplateResponse(request=request, name="staff.html", context={"staff": staff, "rows": [cards[i:i+10] for i in range(0, len(cards), 10)]})
+            detail = None
+            if state == "occupied":
+                detail = {
+                    "kind": "Vehículo ingresado" if stay else "Reserva activa",
+                    "customer_name": reservation.customer_name if reservation else "Ingreso sin reserva",
+                    "plate": stay.plate if stay else reservation.plate,
+                    "scheduled": local_time(reservation.scheduled_at or reservation.created_at) if reservation else None,
+                    "entered": local_time(stay.entered_at) if stay else None,
+                    "code": stay.access_code if stay else reservation.access_code,
+                }
+            cards.append({"code": code, "state": state, "detail": detail})
+        return templates.TemplateResponse(request=request, name="staff.html", context={
+            "staff": staff, "rows": [cards[i:i+10] for i in range(0, len(cards), 10)], "qr_svg": qr_svg})
 
     @app.get("/api/dashboard/spaces")
     def dashboard_spaces(request: Request, staff=Depends(current_staff)):

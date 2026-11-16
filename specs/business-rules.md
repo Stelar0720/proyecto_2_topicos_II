@@ -36,6 +36,7 @@ Los IDs BR-01–BR-30 conservan la numeración acordada por el equipo en la soli
 | BR-30 | No guardar secretos/códigos privados completos en logs. |
 | BR-31 | Un mismo código QR identifica una visita: para una reserva se reutiliza al ingresar y al salir; un espontáneo recibe ese código al ingresar. |
 | BR-32 | Dashboard: gris disponible, verde reservado u ocupado normal, rojo estadía abierta de más de 24 horas. |
+| BR-33 | Todo espacio verde del dashboard abre su detalle operativo. Si tiene reserva o ticket recuperable, el administrador ve su QR y código; estos datos no se registran en logs ni se exponen a clientes. |
 
 ## Estados y transiciones (contrato para historias futuras)
 
