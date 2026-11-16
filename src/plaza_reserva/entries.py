@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -79,7 +79,8 @@ def enter_with_reservation(session: Session, now: datetime, raw_code: str,
             if session.scalar(select(exists().where(
                     Stay.plate == plate, Stay.status == "open"))):
                 raise AppError(409, "PLATE_BUSY", "La placa ya tiene una estadía abierta")
-            if session.get(Allocation, reservation.space_id) is not None:
+            allocation = session.get(Allocation, reservation.space_id)
+            if allocation is not None and allocation.reservation_id != reservation.id:
                 raise AppError(409, "CATEGORY_FULL", "El espacio ya está ocupado")
             # El QR de reserva continúa siendo el QR de salida de esta misma visita.
             ticket_code = code
@@ -89,6 +90,10 @@ def enter_with_reservation(session: Session, now: datetime, raw_code: str,
                         status="open", entered_at=now)
             session.add(stay)
             session.flush()
+            if allocation is not None:
+                session.execute(delete(Allocation).where(
+                    Allocation.space_id == reservation.space_id,
+                    Allocation.reservation_id == reservation.id))
             session.add(Allocation(space_id=reservation.space_id, plate=plate, stay_id=stay.id))
             reservation.status = "used"
             reservation.used_at = now

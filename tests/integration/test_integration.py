@@ -10,7 +10,7 @@ from plaza_reserva.demo import DEMO_REFERENCE, seed_demo
 from plaza_reserva.entries import enter_walk_in
 from plaza_reserva.errors import AppError
 from plaza_reserva.exits import close_stay, quote_amount_cents
-from plaza_reserva.models import Allocation, Payment, Reservation, Stay
+from plaza_reserva.models import Allocation, Payment, Reservation, Space, Stay
 from plaza_reserva.reservations import create_reservation
 
 PASSWORD = "solo-para-prueba-aleatoria"
@@ -64,8 +64,11 @@ def test_last_preferential_reservation_race_single_winner(engine, clock):
     for t in threads: t.join(timeout=20)
     assert sorted(r[0] for r in results) == ["error", "ok"]
     with Session(engine) as session:
-        pref_allocs = session.scalars(select(Allocation.space_id)).all()
-        assert len([s for s in pref_allocs if s.startswith("P")]) == 20
+        preferential_allocations = session.scalar(
+            select(func.count()).select_from(Allocation)
+            .join(Space, Space.code == Allocation.space_id)
+            .where(Space.category == "preferential"))
+        assert preferential_allocations == 20
 
 
 def test_demo_seed_idempotent_and_scenarios(engine, clock):

@@ -165,6 +165,8 @@ def create_reservation(session: Session, now: datetime, raw_name: str = "Cliente
                                       created_at=now, scheduled_at=scheduled_at, expires_at=expires_at)
             session.add(reservation)
             session.flush()
+            session.add(Allocation(space_id=space_code, plate=plate,
+                                   reservation_id=reservation.id))
     except IntegrityError:
         raise AppError(409, "PLATE_BUSY",
                        "La placa o el espacio ya están asignados") from None
@@ -192,6 +194,16 @@ def _no_store(response):
     return response
 
 
+def _allocation_session(request: Request) -> Session:
+    """Abre la sesión nueva que requiere una mutación de asignación.
+
+    Las dependencias de autenticación ya leen la sesión de la petición. La
+    transacción de asignación necesita una sesión independiente, sin lecturas
+    previas, para tomar el bloqueo de forma segura.
+    """
+    return Session(request.app.state.engine)
+
+
 @router.get("/availability")
 def availability(request: Request, response: Response,
                session: Session = Depends(get_session)):
@@ -202,8 +214,10 @@ def availability(request: Request, response: Response,
 
 @router.post("/reservations", status_code=201, dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def reserve(body: ReservationBody, request: Request, response: Response,
-            session: Session = Depends(get_session)):
-    result = create_reservation(session, request.app.state.clock.now(), body.customer_name, body.plate, body.scheduled_at)
+            staff=Depends(require_roles("client", "admin"))):
+    with _allocation_session(request) as session:
+        result = create_reservation(session, request.app.state.clock.now(), body.customer_name,
+                                    body.plate, body.scheduled_at)
     _no_store(response)
     return result
 
@@ -220,10 +234,11 @@ def reserve_page(request: Request, session: Session = Depends(get_session)):
 @views.post("/reservar", response_class=HTMLResponse, dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def reserve_submit(request: Request, customer_name: str = Form(default=""), plate: str = Form(default=""),
                    scheduled_at: str = Form(default=""),
-                   session: Session = Depends(get_session)):
+                    staff=Depends(require_roles("client", "admin"))):
     now = request.app.state.clock.now()
     try:
-        result = create_reservation(session, now, customer_name, plate, scheduled_at)
+        with _allocation_session(request) as session:
+            result = create_reservation(session, now, customer_name, plate, scheduled_at)
     except AppError as exc:
         if exc.status not in {409, 422}:
             raise
@@ -323,8 +338,9 @@ def lookup(body: CodeBody, request: Request, response: Response,
 
 @router.post("/reservations/cancel", dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def cancel(body: CodeBody, request: Request, response: Response,
-           session: Session = Depends(get_session)):
-    payload = cancel_reservation(session, request.app.state.clock.now(), body.private_code)
+           staff=Depends(require_roles("client", "admin"))):
+    with _allocation_session(request) as session:
+        payload = cancel_reservation(session, request.app.state.clock.now(), body.private_code)
     _no_store(response)
     return payload
 
@@ -351,7 +367,8 @@ def lookup_submit(request: Request, private_code: str = Form(default=""),
                   session: Session = Depends(get_session)):
     now = request.app.state.clock.now()
     try:
-        payload = lookup_reservation(session, now, private_code)
+        with Session(request.app.state.engine) as session:
+            payload = lookup_reservation(session, now, private_code)
     except AppError as exc:
         if exc.status != 404:
             raise
@@ -366,10 +383,11 @@ def lookup_submit(request: Request, private_code: str = Form(default=""),
 @views.post("/mi-reserva/cancelar", response_class=HTMLResponse,
             dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def cancel_submit(request: Request, private_code: str = Form(default=""),
-                  session: Session = Depends(get_session)):
+                  staff=Depends(require_roles("client", "admin"))):
     now = request.app.state.clock.now()
     try:
-        payload = cancel_reservation(session, now, private_code)
+        with _allocation_session(request) as session:
+            payload = cancel_reservation(session, now, private_code)
     except AppError as exc:
         if exc.status not in {404, 409}:
             raise
@@ -377,7 +395,8 @@ def cancel_submit(request: Request, private_code: str = Form(default=""),
             return _no_store(templates.TemplateResponse(
                 request=request, name="reservations/lookup.html", status_code=404,
                 context={"code": "", "error": exc.message}))
-        payload = lookup_reservation(session, now, private_code)
+        with Session(request.app.state.engine) as session:
+            payload = lookup_reservation(session, now, private_code)
         return _no_store(templates.TemplateResponse(
             request=request, name="reservations/status.html", status_code=409,
             context=_status_context(payload, now, error=exc.message, code=private_code)))
