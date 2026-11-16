@@ -26,7 +26,7 @@ from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from .auth import same_origin
+from .auth import require_roles, same_origin
 from .db import allocation_transaction, get_session
 from .errors import AppError
 from .models import Allocation, Reservation, Space, Stay
@@ -56,17 +56,35 @@ def normalize_plate(raw: str) -> str:
     return plate
 
 
+def normalize_customer_name(raw: str) -> str:
+    name = " ".join((raw or "").split())
+    if not 2 <= len(name) <= 80:
+        raise AppError(422, "VALIDATION_ERROR", "El nombre requiere entre 2 y 80 caracteres")
+    return name
+
+
+def parse_scheduled_at(raw: str) -> datetime:
+    try:
+        value = datetime.fromisoformat((raw or "").replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise AppError(422, "VALIDATION_ERROR", "Selecciona una fecha y hora válidas") from exc
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=PANAMA)
+    return value.astimezone(ZoneInfo("UTC"))
+
+
 def effective_availability(session: Session, now: datetime) -> dict:
     """Capacidad derivada; ignora reservas vencidas sin escribir en la base."""
     totals = dict(session.execute(
         select(Space.category, func.count()).group_by(Space.category)).all())
     preferential_total = int(totals.get("preferential", 0))
     general_total = int(totals.get("general", 0))
+    reservation_start = func.coalesce(Reservation.scheduled_at, Reservation.created_at)
     reserved = session.scalar(
-        select(func.count()).select_from(Allocation)
-        .join(Reservation, Reservation.id == Allocation.reservation_id)
-        .join(Space, Space.code == Allocation.space_id)
+        select(func.count()).select_from(Reservation)
+        .join(Space, Space.code == Reservation.space_id)
         .where(Reservation.status == "pending",
+               reservation_start <= now,
                Reservation.expires_at > now,
                Space.category == "preferential")) or 0
     occupied = dict(session.execute(
@@ -105,13 +123,19 @@ def release_expired(session: Session, now: datetime) -> int:
     return len(stale)
 
 
-def create_reservation(session: Session, now: datetime, raw_plate: str) -> dict:
+def create_reservation(session: Session, now: datetime, raw_name: str = "Cliente demo", raw_plate: str = "",
+                       raw_scheduled_at: str | None = None) -> dict:
     """Crea reserva + asignación en una sola transacción serializada.
 
     El código privado se devuelve solo aquí; en la base queda su digest.
     """
+    # Compatibilidad interna: llamadas previas pasaban solo la placa como tercer argumento.
+    if not raw_plate:
+        raw_plate, raw_name = raw_name, "Cliente demo"
     plate = normalize_plate(raw_plate)
-    expires_at = now + timedelta(minutes=RESERVATION_MINUTES)
+    customer_name = normalize_customer_name(raw_name)
+    scheduled_at = parse_scheduled_at(raw_scheduled_at) if raw_scheduled_at else now
+    expires_at = scheduled_at + timedelta(minutes=RESERVATION_MINUTES)
     try:
         with allocation_transaction(session):
             release_expired(session, now)
@@ -121,23 +145,26 @@ def create_reservation(session: Session, now: datetime, raw_plate: str) -> dict:
             if session.scalar(select(exists().where(
                     Reservation.plate == plate, Reservation.status == "pending"))):
                 raise AppError(409, "PLATE_BUSY", "La placa ya tiene una reserva pendiente")
+            reservation_start = func.coalesce(Reservation.scheduled_at, Reservation.created_at)
             space_code = session.scalar(
                 select(Space.code)
                 .where(Space.category == "preferential",
-                       ~exists().where(Allocation.space_id == Space.code))
+                       ~exists().where(Allocation.space_id == Space.code),
+                       ~exists().where(Reservation.space_id == Space.code,
+                                       Reservation.status == "pending",
+                                       reservation_start < expires_at,
+                                       Reservation.expires_at > scheduled_at))
                 .order_by(Space.code)
                 .limit(1))
             if space_code is None:
                 raise AppError(409, "CATEGORY_FULL",
                                "No quedan espacios preferenciales disponibles")
             private_code = new_token()
-            reservation = Reservation(plate=plate, space_id=space_code, status="pending",
+            reservation = Reservation(plate=plate, customer_name=customer_name, space_id=space_code, status="pending",
                                       token_hash=token_digest(private_code),
-                                      created_at=now, expires_at=expires_at)
+                                      created_at=now, scheduled_at=scheduled_at, expires_at=expires_at)
             session.add(reservation)
             session.flush()
-            session.add(Allocation(space_id=space_code, plate=plate,
-                                   reservation_id=reservation.id))
     except IntegrityError:
         raise AppError(409, "PLATE_BUSY",
                        "La placa o el espacio ya están asignados") from None
@@ -145,6 +172,7 @@ def create_reservation(session: Session, now: datetime, raw_plate: str) -> dict:
         raise AppError(503, "DATABASE_BUSY",
                        "La base está ocupada; vuelve a intentarlo") from None
     return {"status": "pending", "space_code": space_code, "plate": plate,
+            "customer_name": customer_name, "scheduled_at": scheduled_at,
             "created_at": now, "expires_at": expires_at, "private_code": private_code}
 
 
@@ -154,7 +182,9 @@ def qr_svg(private_code: str) -> str:
 
 
 class ReservationBody(BaseModel):
+    customer_name: str = Field(min_length=2, max_length=80)
     plate: str = Field(min_length=1, max_length=40)
+    scheduled_at: str = Field(min_length=16, max_length=40)
 
 
 def _no_store(response):
@@ -170,29 +200,30 @@ def availability(request: Request, response: Response,
     return data
 
 
-@router.post("/reservations", status_code=201, dependencies=[Depends(same_origin)])
+@router.post("/reservations", status_code=201, dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def reserve(body: ReservationBody, request: Request, response: Response,
             session: Session = Depends(get_session)):
-    result = create_reservation(session, request.app.state.clock.now(), body.plate)
+    result = create_reservation(session, request.app.state.clock.now(), body.customer_name, body.plate, body.scheduled_at)
     _no_store(response)
     return result
 
 
-@views.get("/reservar", response_class=HTMLResponse)
+@views.get("/reservar", response_class=HTMLResponse, dependencies=[Depends(require_roles("client", "admin"))])
 def reserve_page(request: Request, session: Session = Depends(get_session)):
     now = request.app.state.clock.now()
     return templates.TemplateResponse(
         request=request, name="reservations/availability.html",
         context={"availability": effective_availability(session, now), "as_of": local_time(now),
-                 "local": local_time, "plate": "", "error": None})
+                 "local": local_time, "plate": "", "customer_name": "", "scheduled_at": "", "error": None})
 
 
-@views.post("/reservar", response_class=HTMLResponse, dependencies=[Depends(same_origin)])
-def reserve_submit(request: Request, plate: str = Form(default=""),
+@views.post("/reservar", response_class=HTMLResponse, dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
+def reserve_submit(request: Request, customer_name: str = Form(default=""), plate: str = Form(default=""),
+                   scheduled_at: str = Form(default=""),
                    session: Session = Depends(get_session)):
     now = request.app.state.clock.now()
     try:
-        result = create_reservation(session, now, plate)
+        result = create_reservation(session, now, customer_name, plate, scheduled_at)
     except AppError as exc:
         if exc.status not in {409, 422}:
             raise
@@ -200,11 +231,12 @@ def reserve_submit(request: Request, plate: str = Form(default=""),
             request=request, name="reservations/availability.html", status_code=exc.status,
             context={"availability": effective_availability(session, now),
                      "as_of": local_time(now), "local": local_time,
-                     "plate": plate, "error": exc.message}))
+                     "plate": plate, "customer_name": customer_name, "scheduled_at": scheduled_at, "error": exc.message}))
     return _no_store(templates.TemplateResponse(
         request=request, name="reservations/created.html",
         context={"reservation": result, "qr_svg": qr_svg(result["private_code"]),
                  "created": local_time(result["created_at"]),
+                 "scheduled": local_time(result["scheduled_at"]),
                  "expires": local_time(result["expires_at"])}))
 
 
@@ -225,7 +257,8 @@ def reservation_payload(reservation: Reservation, now: datetime) -> dict:
     status = effective_status(reservation, now)
     remaining = max(0, int((reservation.expires_at - now).total_seconds())) if status == "pending" else 0
     return {"status": status, "status_label": STATUS_LABELS[status],
-            "plate": reservation.plate, "space_code": reservation.space_id,
+            "plate": reservation.plate, "customer_name": reservation.customer_name,
+            "space_code": reservation.space_id, "scheduled_at": reservation.scheduled_at or reservation.created_at,
             "created_at": reservation.created_at, "expires_at": reservation.expires_at,
             "cancelled_at": reservation.cancelled_at, "used_at": reservation.used_at,
             "remaining_seconds": remaining}
@@ -280,7 +313,7 @@ class CodeBody(BaseModel):
     private_code: str = Field(min_length=1, max_length=128)
 
 
-@router.post("/reservations/lookup")
+@router.post("/reservations/lookup", dependencies=[Depends(require_roles("client", "admin"))])
 def lookup(body: CodeBody, request: Request, response: Response,
            session: Session = Depends(get_session)):
     payload = lookup_reservation(session, request.app.state.clock.now(), body.private_code)
@@ -288,7 +321,7 @@ def lookup(body: CodeBody, request: Request, response: Response,
     return payload
 
 
-@router.post("/reservations/cancel", dependencies=[Depends(same_origin)])
+@router.post("/reservations/cancel", dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def cancel(body: CodeBody, request: Request, response: Response,
            session: Session = Depends(get_session)):
     payload = cancel_reservation(session, request.app.state.clock.now(), body.private_code)
@@ -305,7 +338,7 @@ def _status_context(payload: dict, now: datetime, error=None, code=""):
             "as_of": local_time(now), "local": local_time}
 
 
-@views.get("/mi-reserva", response_class=HTMLResponse)
+@views.get("/mi-reserva", response_class=HTMLResponse, dependencies=[Depends(require_roles("client", "admin"))])
 def lookup_page(request: Request, response: Response):
     _no_store(response)
     return templates.TemplateResponse(
@@ -313,7 +346,7 @@ def lookup_page(request: Request, response: Response):
         context={"code": "", "error": None})
 
 
-@views.post("/mi-reserva", response_class=HTMLResponse, dependencies=[Depends(same_origin)])
+@views.post("/mi-reserva", response_class=HTMLResponse, dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def lookup_submit(request: Request, private_code: str = Form(default=""),
                   session: Session = Depends(get_session)):
     now = request.app.state.clock.now()
@@ -331,7 +364,7 @@ def lookup_submit(request: Request, private_code: str = Form(default=""),
 
 
 @views.post("/mi-reserva/cancelar", response_class=HTMLResponse,
-            dependencies=[Depends(same_origin)])
+            dependencies=[Depends(same_origin), Depends(require_roles("client", "admin"))])
 def cancel_submit(request: Request, private_code: str = Form(default=""),
                   session: Session = Depends(get_session)):
     now = request.app.state.clock.now()

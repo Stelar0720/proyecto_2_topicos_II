@@ -4,8 +4,8 @@ Los IDs BR-01–BR-30 conservan la numeración acordada por el equipo en la soli
 
 | ID | Regla |
 |---|---|
-| BR-01 | Reserva para llegada próxima; sin franjas futuras. |
-| BR-02 | Retiene preferencial durante 30 minutos desde creación. |
+| BR-01 | Para la demo, una reserva puede programarse en fecha/hora pasada o futura. |
+| BR-02 | Retiene un preferencial durante 30 minutos desde la fecha/hora programada. |
 | BR-03 | Al vencer sin ingreso deja de retenerlo: `now >= expires_at`. |
 | BR-04 | Entregar QR y código privado para consultar/cancelar. |
 | BR-05 | Celador verifica placa y confirma ingreso. |
@@ -31,9 +31,11 @@ Los IDs BR-01–BR-30 conservan la numeración acordada por el equipo en la soli
 | BR-25 | Exactamente 24 horas no activa alerta. |
 | BR-26 | Alerta muestra placa, espacio y tiempo transcurrido. |
 | BR-27 | Alerta informativa, sin recargo ni liberación. |
-| BR-28 | Garita, vigilancia y administración autenticadas. |
+| BR-28 | Cliente y administración están autenticados; administración también opera la garita. |
 | BR-29 | Visitantes sin enumeración de reservas ni datos ajenos. |
 | BR-30 | No guardar secretos/códigos privados completos en logs. |
+| BR-31 | Un mismo código QR identifica una visita: para una reserva se reutiliza al ingresar y al salir; un espontáneo recibe ese código al ingresar. |
+| BR-32 | Dashboard: gris disponible, verde reservado u ocupado normal, rojo estadía abierta de más de 24 horas. |
 
 ## Estados y transiciones (contrato para historias futuras)
 
@@ -48,8 +50,9 @@ Los IDs BR-01–BR-30 conservan la numeración acordada por el equipo en la soli
   al cancelar/vencer; `available` → `occupied` al ingreso espontáneo general;
   `occupied` → `available` al cerrar. No hay transición por alerta.
 
-La disponibilidad calcula reservas `pending AND expires_at > now` y estadías
-`open`, sin depender de cron. Antes de cualquier asignación, la transacción
+La disponibilidad para un instante calcula reservas `pending` cuya ventana cumple
+`scheduled_at <= now < expires_at` y estadías `open`, sin depender de cron. Antes
+de cualquier asignación, la transacción
 normaliza reservas vencidas y elimina sus asignaciones. Esa limpieza es parte
 obligatoria de HU-01/HU-03; no está implementada en la base.
 

@@ -15,15 +15,19 @@
 <form method="post" action="/garita/reserva">
  <label for="private_code">Código del QR o código manual</label>
  <input id="private_code" name="private_code" value="{{ code }}" maxlength="128" required autocomplete="off" spellcheck="false">
+ <button type="button" data-qr-target="private_code">Escanear QR con cámara</button>
  <label for="plate">Placa verificada</label>
  <input id="plate" name="plate" value="{{ plate }}" maxlength="12" required autocomplete="off">
+ <label for="entered_at">Fecha y hora de ingreso</label><input id="entered_at" name="entered_at" type="datetime-local">
  <button type="submit">Confirmar ingreso con reserva</button>
  <p>Se registra la utilización de la reserva y el inicio de la estadía en un solo paso.</p>
 </form>
+<script src="{{ url_for('static', path='/qr-scanner.js') }}" defer></script>
 <h2>Ingreso espontáneo</h2>
 <form method="post" action="/garita/espontaneo">
  <label for="plate-walkin">Placa verificada</label>
  <input id="plate-walkin" name="plate" maxlength="12" required autocomplete="off">
+ <label for="entered-at-walkin">Fecha y hora de ingreso</label><input id="entered-at-walkin" name="entered_at" type="datetime-local">
  <button type="submit">Asignar general y entrar</button>
  <p>Si no quedan generales, el ingreso se rechaza sin crear registros.</p>
 </form>

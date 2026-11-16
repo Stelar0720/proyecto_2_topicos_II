@@ -14,6 +14,7 @@ La preparación local no es actividad publicada ni revisión humana.
 | HU-05 | alerta >24h, Alex | HU-03 | alerts.py, templates/alerts/, tests/test_alerts.py; AC-12/13 | tres fronteras temporales verificadas |
 | QA-01 | demo/integración, Alex | HU-01–05 | demo.py, tests/integration/; AC-14 y escenarios críticos | carga idempotente separada y evidencia reproducible |
 | ENTREGA-01 | ejecución/publicación-demo, Jack + Alex | QA-01 | README, CI, docs/testing.md | ensayo reproducible, PG probado, URL/evidencia real |
+| DEMO-UX | cuentas cliente, reserva programada, QR único y dashboard | HU-01–05 | migración sucesora, auth, reservas, garita, salida, dashboard; AC-15–17 | demo local con controles de roles y pruebas |
 
 Subtareas pequeñas **dentro de cada historia**, no entregas aisladas:
 

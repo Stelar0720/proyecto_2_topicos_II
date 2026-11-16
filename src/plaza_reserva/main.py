@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -8,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -15,6 +17,7 @@ from .auth import LoginLimiter, current_staff, router
 from .clock import SystemClock
 from .config import Settings
 from .db import build_engine
+from .models import Reservation, Space, Stay
 from .entries import router as entries_router, views as entries_views
 from .errors import AppError
 from .exits import router as exits_router, views as exits_views
@@ -107,6 +110,44 @@ def create_app(settings=None, clock=None, engine=None):
 
     @app.get("/personal", response_class=HTMLResponse)
     def staff_home(request: Request, staff=Depends(current_staff)):
-        return templates.TemplateResponse(request=request, name="staff.html", context={"staff": staff})
+        if staff.role != "admin":
+            raise AppError(403, "FORBIDDEN", "Área exclusiva de administración")
+        now = request.app.state.clock.now()
+        with engine.connect() as connection:
+            spaces = connection.execute(text("SELECT code FROM spaces ORDER BY code")).scalars().all()
+        with Session(engine) as session:
+            open_stays = {s.space_id: s for s in session.query(Stay).filter(Stay.status == "open")}
+            reserved = {r.space_id for r in session.query(Reservation).filter(
+                Reservation.status == "pending", Reservation.scheduled_at <= now,
+                Reservation.expires_at > now)}
+        cards = []
+        for code in spaces:
+            stay = open_stays.get(code)
+            state = "alert" if stay and now - stay.entered_at > timedelta(hours=24) else "occupied" if stay or code in reserved else "available"
+            cards.append({"code": code, "state": state})
+        return templates.TemplateResponse(request=request, name="staff.html", context={"staff": staff, "rows": [cards[i:i+10] for i in range(0, len(cards), 10)]})
+
+    @app.get("/api/dashboard/spaces")
+    def dashboard_spaces(request: Request, staff=Depends(current_staff)):
+        if staff.role != "admin":
+            raise AppError(403, "FORBIDDEN", "Área exclusiva de administración")
+        now = request.app.state.clock.now()
+        with Session(engine) as session:
+            open_stays = {s.space_id: s for s in session.query(Stay).filter(Stay.status == "open")}
+            reserved = {r.space_id for r in session.query(Reservation).filter(
+                Reservation.status == "pending", Reservation.scheduled_at <= now,
+                Reservation.expires_at > now)}
+        with engine.connect() as connection:
+            spaces = connection.execute(text("SELECT code FROM spaces ORDER BY code")).scalars().all()
+        return {"as_of": now, "spaces": [{"code": code, "state": (
+            "alert" if code in open_stays and now - open_stays[code].entered_at > timedelta(hours=24)
+            else "occupied" if code in open_stays or code in reserved else "available"
+        )} for code in spaces]}
+
+    @app.get("/cliente", response_class=HTMLResponse)
+    def client_home(request: Request, staff=Depends(current_staff)):
+        if staff.role != "client":
+            raise AppError(403, "FORBIDDEN", "Área exclusiva de clientes")
+        return templates.TemplateResponse(request=request, name="client.html", context={"staff": staff})
 
     return app

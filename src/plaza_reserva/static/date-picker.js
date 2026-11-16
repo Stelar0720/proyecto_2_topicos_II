@@ -1,0 +1,10 @@
+"use strict";
+const field = document.querySelector("#scheduled_at"), picker = document.querySelector("#date-picker");
+if (field && picker) {
+  const title = document.querySelector("#calendar-title"), grid = document.querySelector("#calendar-grid");
+  const trigger = document.querySelector("#date-trigger"), hour = document.querySelector("#calendar-hour"), minute = document.querySelector("#calendar-minute"), yearInput = document.querySelector("#calendar-year");
+  let selected = field.value ? new Date(`${field.value}:00`) : new Date(); let cursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const pad = n => String(n).padStart(2, "0");
+  function render() { const year=cursor.getFullYear(), month=cursor.getMonth(), first=(cursor.getDay()+6)%7, days=new Date(year,month+1,0).getDate(); yearInput.value=year; title.textContent=cursor.toLocaleDateString("es-PA",{month:"long",year:"numeric"}); grid.innerHTML=""; for(let i=0;i<42;i++){const day=i-first+1, b=document.createElement("button"); b.type="button"; if(day<1||day>days){b.disabled=true;b.textContent=""}else{b.textContent=day;b.dataset.day=day;if(selected.getFullYear()===year&&selected.getMonth()===month&&selected.getDate()===day)b.className="selected"} grid.append(b)} }
+  trigger.addEventListener("click",()=>{picker.hidden=!picker.hidden;render()}); picker.addEventListener("click",e=>{if(e.target.dataset.month){cursor.setMonth(cursor.getMonth()+Number(e.target.dataset.month));render()} if(e.target.dataset.day){selected=new Date(cursor.getFullYear(),cursor.getMonth(),Number(e.target.dataset.day));render()}}); yearInput.addEventListener("change",()=>{cursor.setFullYear(Number(yearInput.value));render()}); document.querySelector("#calendar-apply").addEventListener("click",()=>{selected.setHours(Number(hour.value),Number(minute.value),0,0);field.value=`${selected.getFullYear()}-${pad(selected.getMonth()+1)}-${pad(selected.getDate())}T${pad(selected.getHours())}:${pad(selected.getMinutes())}`;trigger.textContent=selected.toLocaleString("es-PA",{dateStyle:"medium",timeStyle:"short"});picker.hidden=true});
+}

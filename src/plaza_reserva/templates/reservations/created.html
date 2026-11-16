@@ -3,7 +3,7 @@
 {% block content %}
 <p class="eyebrow">Reserva vigente</p>
 <h1>Espacio {{ reservation.space_code }} retenido</h1>
-<p class="intro">Llega a la garita antes de <strong>{{ expires }}</strong> (America/Panama) y muestra el QR o dicta el código privado. El celador comprobará la placa <strong>{{ reservation.plate }}</strong> antes de confirmar el ingreso.</p>
+<p class="intro"><strong>{{ reservation.customer_name }}</strong>, llega a la garita desde <strong>{{ scheduled }}</strong> hasta <strong>{{ expires }}</strong> (America/Panama) y muestra el QR o dicta el código privado.</p>
 <section class="grid" aria-label="Datos de la reserva">
  <article><h2>Espacio</h2><p class="number">{{ reservation.space_code }}</p><p>Preferencial retenido por 30 minutos desde {{ created }}.</p></article>
  <article><h2>Código privado</h2><p><code>{{ reservation.private_code }}</code></p><p>Consérvalo: en la base solo queda su digest y no se vuelve a mostrar completo.</p></article>

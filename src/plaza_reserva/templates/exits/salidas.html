@@ -9,6 +9,7 @@
 <form method="post" action="/salidas/cotizar">
  <label for="ticket_code">Código del ticket (QR o manual)</label>
  <input id="ticket_code" name="ticket_code" value="{{ code }}" maxlength="128" required autocomplete="off" spellcheck="false">
+ <button type="button" data-qr-target="ticket_code">Escanear QR con cámara</button>
  <button type="submit">Calcular importe</button>
 </form>
 {% if quote %}
@@ -32,4 +33,5 @@
 </section>
 <p class="notice">Cierre registrado. Un ticket cerrado no puede cerrar ni cobrar otra estadía.</p>
 {% endif %}
+<script src="{{ url_for('static', path='/qr-scanner.js') }}" defer></script>
 {% endblock %}

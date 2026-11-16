@@ -40,17 +40,40 @@ son **aditivos**: ningún cliente de v0.1 deja de funcionar.
 | GET `/api/auth/me` | cookie | 200 `{id,username,role}` o 401 |
 | POST `/api/auth/logout` | cookie + Origin | 204, revoca sesión y cookie; repetición 204 |
 
+## Demo UX v0.3 · cliente, programación y tablero
+
+Las cuentas demo tienen roles `admin` y `client`. Las contraseñas locales para la
+demo admiten 4–10 caracteres. `admin` opera garita, salida, alertas y dashboard;
+`client` reserva y consulta sus reservas. Estas reglas sustituyen los roles previos.
+
+Una reserva recibe `customer_name` y `scheduled_at` ISO 8601 con zona. La ventana
+válida es `[scheduled_at, scheduled_at + 30min)`; dos reservas que se solapan no
+pueden usar el mismo preferencial. `entered_at` se captura al registrar el ingreso
+y es el único inicio del cobro. El cliente puede elegir fecha/hora pasada o futura
+para la demo.
+
+El QR contiene un único código privado. En una reserva, el mismo valor se convierte
+en código de ticket al ingresar y se presenta nuevamente al salir. El lector de
+cámara es una ayuda de interfaz: el servidor aplica las mismas validaciones que al
+escribir el código manualmente.
+
+| Método / ruta | Entrada | Salida / acceso |
+|---|---|---|
+| GET `/cliente` | cookie `client` | área de cliente con reserva y consulta |
+| GET `/personal` | cookie `admin` | dashboard de 100 espacios |
+| GET `/api/dashboard/spaces` | cookie `admin` | estado gris/verde/rojo de P001–P020 y G001–G080 |
+
 ## HU-01 · disponibilidad y reserva (en `main`, PR #11)
 
 | Método / ruta | Entrada | Salida |
 |---|---|---|
 | GET `/api/availability` | — | 200 `{as_of,preferential:{available,total},general:{available,total}}`; sin placas ni reservas |
-| POST `/api/reservations` | `{plate}` + regla de origen | 201 `{status:"pending",space_code,plate,created_at,expires_at,private_code}`; 409 `PLATE_BUSY`/`CATEGORY_FULL`; 422 `VALIDATION_ERROR` |
+| POST `/api/reservations` | cliente/admin, `{customer_name,plate,scheduled_at}` + regla de origen | 201 `{status:"pending",space_code,plate,customer_name,scheduled_at,created_at,expires_at,private_code}`; 409 `PLATE_BUSY`/`CATEGORY_FULL`; 422 `VALIDATION_ERROR` |
 | GET `/reservar` | — | HTML con capacidad efectiva y formulario |
 | POST `/reservar` | formulario `plate` + regla de origen | HTML del resultado con espacio, vencimiento en America/Panama, código y QR SVG; errores 409/422 en la misma vista |
 
-Placa: mayúsculas y recorte exterior, patrón `[A-Z0-9-]{2,12}` (D-04, propuesta
-pendiente). Retención fija de 30 minutos desde `created_at`.
+Placa: mayúsculas y recorte exterior, patrón `[A-Z0-9-]{2,12}`. Retención fija de
+30 minutos desde `scheduled_at`; el espacio físico se ocupa solo al registrar ingreso.
 
 ## HU-02 · consulta y cancelación privadas (en `main`, PR #12)
 

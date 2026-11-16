@@ -8,8 +8,8 @@ ITERATIONS = 600_000
 
 
 def hash_password(password: str) -> str:
-    if not 12 <= len(password) <= 128:
-        raise ValueError("La contraseña requiere entre 12 y 128 caracteres")
+    if not 4 <= len(password) <= 128:
+        raise ValueError("La contraseña requiere entre 4 y 128 caracteres")
     salt = secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, ITERATIONS)
     return "$".join(("pbkdf2_sha256", str(ITERATIONS),
@@ -22,7 +22,9 @@ def verify_password(password: str, encoded: str) -> bool:
         count = int(iterations)
         if algorithm != "pbkdf2_sha256" or not 600_000 <= count <= 2_000_000:
             return False
-        if not 12 <= len(password) <= 128:
+        # Las nuevas cuentas usan 4–10 caracteres. Aceptamos hashes previos con
+        # contraseñas más largas para no bloquear al administrador ya existente.
+        if not 4 <= len(password) <= 128:
             return False
         actual = hashlib.pbkdf2_hmac("sha256", password.encode(), base64.b64decode(salt), count)
         return hmac.compare_digest(actual, base64.b64decode(expected))

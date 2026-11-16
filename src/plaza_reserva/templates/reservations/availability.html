@@ -3,11 +3,11 @@
 {% block content %}
 <p class="eyebrow">Reserva de llegada próxima</p>
 <h1>Reserva tu espacio preferencial</h1>
-<p class="intro">El sistema retiene un espacio preferencial durante 30 minutos desde la creación de la reserva. La llegada a garita debe ocurrir dentro de ese plazo.</p>
+<p class="intro">Elige tu fecha y hora de llegada. El espacio se mantiene hasta 30 minutos después de esa hora; el cobro inicia al registrar el ingreso.</p>
 <section class="grid" aria-label="Disponibilidad efectiva al {{ as_of }}">
  <article><p class="number">{{ availability.preferential.available }}</p><h2>Preferenciales libres</h2><p>de {{ availability.preferential.total }} · P001–P020</p></article>
  <article><p class="number">{{ availability.general.available }}</p><h2>Generales libres</h2><p>de {{ availability.general.total }} · G001–G080</p></article>
- <article><p class="number">30</p><h2>Minutos de retención</h2><p>Sin franjas futuras ni hora de salida contratada.</p></article>
+ <article><p class="number">30</p><h2>Minutos de retención</h2><p>Desde la hora acordada de ingreso.</p></article>
 </section>
 <p class="eyebrow">Disponibilidad al {{ as_of }} · America/Panama</p>
 {% if error %}<p class="notice" role="alert"><strong>No se pudo reservar.</strong> {{ error }}</p>{% endif %}
@@ -15,11 +15,24 @@
 <p class="notice">No quedan espacios preferenciales libres en este momento. Los generales se asignan solo en garita a ingresos espontáneos.</p>
 {% else %}
 <form method="post" action="/reservar">
+ <label for="customer_name">Nombre</label>
+ <input id="customer_name" name="customer_name" value="{{ customer_name }}" maxlength="80" required autocomplete="name">
  <label for="plate">Placa del vehículo</label>
  <input id="plate" name="plate" value="{{ plate }}" maxlength="12" required autocomplete="off" aria-describedby="plate-help">
  <p id="plate-help">De 2 a 12 caracteres: letras, números o guion. Se guarda en mayúsculas y sin espacios exteriores.</p>
- <button type="submit">Reservar 30 minutos</button>
+ <label for="scheduled_at">Fecha y hora acordadas</label>
+ <input id="scheduled_at" name="scheduled_at" type="hidden" value="{{ scheduled_at }}" required>
+ <button class="date-trigger" id="date-trigger" type="button">Seleccionar fecha y hora</button>
+ <div class="date-picker" id="date-picker" hidden aria-label="Calendario de fecha y hora">
+  <div class="calendar-head"><button type="button" data-month="-1" aria-label="Mes anterior">‹</button><strong id="calendar-title"></strong><button type="button" data-month="1" aria-label="Mes siguiente">›</button></div>
+  <label class="calendar-year">Año <input id="calendar-year" type="number" min="2020" max="2100"></label>
+  <div class="calendar-grid calendar-days"><span>#</span><span>lun</span><span>mar</span><span>mié</span><span>jue</span><span>vie</span><span>sáb</span><span>dom</span></div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+  <div class="calendar-time"><label>Hora <input id="calendar-hour" type="number" min="0" max="23" value="12"></label><span>:</span><label>Minutos <input id="calendar-minute" type="number" min="0" max="59" value="00"></label><button id="calendar-apply" type="button">✓ Aplicar</button></div>
+ </div>
+ <button type="submit">Programar reserva</button>
 </form>
 {% endif %}
 <p class="notice">La consulta y la cancelación con código privado llegan con HU-02. Conserve el código y el QR que se muestran al reservar: no se repiten.</p>
+<script src="{{ url_for('static', path='/date-picker.js') }}" defer></script>
 {% endblock %}

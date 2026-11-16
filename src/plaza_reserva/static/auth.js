@@ -12,7 +12,11 @@ if (login) login.addEventListener("submit", async (event) => {
       body: JSON.stringify({username: login.username.value, password: login.password.value})
     });
     login.password.value = "";
-    if (response.ok) { location.assign("/personal"); return; }
+    if (response.ok) {
+      const staff = await response.json();
+      location.assign(staff.role === "client" ? "/cliente" : "/personal");
+      return;
+    }
     const data = await response.json();
     message.textContent = data.error?.message || "No se pudo iniciar sesión";
   } catch { message.textContent = "No se pudo conectar. Vuelve a intentarlo."; }

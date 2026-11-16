@@ -26,13 +26,13 @@ from .db import allocation_transaction, get_session
 from .errors import AppError
 from .models import Allocation, Reservation, Space, Staff, Stay
 from .reservations import (effective_availability, effective_status, local_time,
-                           normalize_plate, qr_svg, release_expired)
+                           normalize_plate, parse_scheduled_at, qr_svg, release_expired)
 from .security import new_token, token_digest
 
 ROOT = Path(__file__).parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
-GARITA_ROLES = ("celador", "admin")
+GARITA_ROLES = ("admin",)
 router = APIRouter(prefix="/api", tags=["garita"])
 views = APIRouter(tags=["garita"])
 
@@ -70,22 +70,25 @@ def enter_with_reservation(session: Session, now: datetime, raw_code: str,
                 raise AppError(409, "RESERVATION_EXPIRED", "La reserva venció sin ingreso")
             if status == "used":
                 raise AppError(409, "RESERVATION_USED", "La reserva ya se utilizó")
+            scheduled_at = reservation.scheduled_at or reservation.created_at
+            if now < scheduled_at:
+                raise AppError(409, "RESERVATION_NOT_READY",
+                               "La reserva aún no está vigente para registrar el ingreso")
             if reservation.plate != plate:
                 raise AppError(409, "PLATE_MISMATCH", "La placa no corresponde a la reserva")
             if session.scalar(select(exists().where(
                     Stay.plate == plate, Stay.status == "open"))):
                 raise AppError(409, "PLATE_BUSY", "La placa ya tiene una estadía abierta")
-            allocation = session.get(Allocation, reservation.space_id)
-            if allocation is None or allocation.reservation_id != reservation.id:
-                raise AppError(409, "RESERVATION_EXPIRED", "La reserva ya no retiene el espacio")
-            ticket_code = new_token()
+            if session.get(Allocation, reservation.space_id) is not None:
+                raise AppError(409, "CATEGORY_FULL", "El espacio ya está ocupado")
+            # El QR de reserva continúa siendo el QR de salida de esta misma visita.
+            ticket_code = code
             stay = Stay(plate=plate, space_id=reservation.space_id,
                         reservation_id=reservation.id,
                         ticket_hash=token_digest(ticket_code), status="open", entered_at=now)
             session.add(stay)
             session.flush()
-            allocation.reservation_id = None
-            allocation.stay_id = stay.id
+            session.add(Allocation(space_id=reservation.space_id, plate=plate, stay_id=stay.id))
             reservation.status = "used"
             reservation.used_at = now
             payload = _stay_payload(stay, ticket_code, now)
@@ -134,11 +137,13 @@ def enter_walk_in(session: Session, now: datetime, raw_plate: str) -> dict:
 
 class EntryBody(BaseModel):
     plate: str = Field(min_length=1, max_length=40)
+    entered_at: str | None = Field(default=None, max_length=40)
 
 
 class ReservationEntryBody(BaseModel):
     private_code: str = Field(min_length=1, max_length=128)
     plate: str = Field(min_length=1, max_length=40)
+    entered_at: str | None = Field(default=None, max_length=40)
 
 
 def _open_session(request: Request) -> Session:
@@ -151,7 +156,8 @@ def _open_session(request: Request) -> Session:
 def entry_reservation(body: ReservationEntryBody, request: Request, response: Response,
                       staff: Staff = Depends(require_roles(*GARITA_ROLES))):
     with _open_session(request) as session:
-        payload = enter_with_reservation(session, request.app.state.clock.now(),
+        entered_at = parse_scheduled_at(body.entered_at) if body.entered_at else request.app.state.clock.now()
+        payload = enter_with_reservation(session, entered_at,
                                          body.private_code, body.plate)
     _no_store(response)
     return payload
@@ -161,7 +167,8 @@ def entry_reservation(body: ReservationEntryBody, request: Request, response: Re
 def entry_walk_in(body: EntryBody, request: Request, response: Response,
                   staff: Staff = Depends(require_roles(*GARITA_ROLES))):
     with _open_session(request) as session:
-        payload = enter_walk_in(session, request.app.state.clock.now(), body.plate)
+        entered_at = parse_scheduled_at(body.entered_at) if body.entered_at else request.app.state.clock.now()
+        payload = enter_walk_in(session, entered_at, body.plate)
     _no_store(response)
     return payload
 
@@ -216,13 +223,14 @@ def garita_page(request: Request, session: Session = Depends(get_session)):
             dependencies=[Depends(same_origin)])
 def garita_reservation(request: Request, private_code: str = Form(default=""),
                        plate: str = Form(default=""),
+                       entered_at: str = Form(default=""),
                        session: Session = Depends(get_session)):
     staff = _optional_staff(request, session)
     denied = _denied(request, staff)
     if denied is not None:
         return denied
-    now = request.app.state.clock.now()
     try:
+        now = parse_scheduled_at(entered_at) if entered_at else request.app.state.clock.now()
         with _open_session(request) as assignment:
             payload = enter_with_reservation(assignment, now, private_code, plate)
     except AppError as exc:
@@ -236,13 +244,14 @@ def garita_reservation(request: Request, private_code: str = Form(default=""),
 @views.post("/garita/espontaneo", response_class=HTMLResponse,
             dependencies=[Depends(same_origin)])
 def garita_walk_in(request: Request, plate: str = Form(default=""),
+                   entered_at: str = Form(default=""),
                    session: Session = Depends(get_session)):
     staff = _optional_staff(request, session)
     denied = _denied(request, staff)
     if denied is not None:
         return denied
-    now = request.app.state.clock.now()
     try:
+        now = parse_scheduled_at(entered_at) if entered_at else request.app.state.clock.now()
         with _open_session(request) as assignment:
             payload = enter_walk_in(assignment, now, plate)
     except AppError as exc:

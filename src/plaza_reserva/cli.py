@@ -33,7 +33,7 @@ def create_staff(session: Session, username: str, role: str, password: str, cloc
     username = username.strip().lower()
     if not re.fullmatch(r"[a-z0-9_.-]{3,80}", username):
         raise ValueError("Usuario: 3–80 letras minúsculas, números, punto, guion o guion bajo")
-    if role not in {"celador", "vigilancia", "admin"}:
+    if role not in {"admin", "client"}:
         raise ValueError("Rol inválido")
     if session.scalar(select(Staff).where(Staff.username == username)):
         raise ValueError("El usuario ya existe; no se cambió su contraseña")
@@ -50,7 +50,7 @@ def main():
     commands.add_parser("seed-spaces", help="Agregar los 100 espacios de forma idempotente")
     staff = commands.add_parser("create-staff", help="Alta de personal sin contrasena en argumentos")
     staff.add_argument("--username", required=True)
-    staff.add_argument("--role", choices=["celador", "vigilancia", "admin"], required=True)
+    staff.add_argument("--role", choices=["admin", "client"], required=True)
     demo = commands.add_parser("seed-demo", help="Cargar 6 escenarios demo idempotentes en BD separada")
     demo.add_argument("--database-url", default=None, help="URL de BD destino (por defecto sqlite:///data/plaza_demo.db)")
     args = parser.parse_args()
@@ -71,9 +71,11 @@ def main():
             if args.command == "seed-spaces":
                 print(f"Espacios agregados: {seed_spaces(session)}")
             else:
-                password = getpass.getpass("Contrasena (12-128 caracteres): ")
+                password = getpass.getpass("Contrasena (4-10 caracteres): ")
                 if password != getpass.getpass("Repite contrasena: "):
                     parser.exit(1, "Las contrasenas no coinciden\n")
+                if not 4 <= len(password) <= 10:
+                    parser.exit(1, "La contrasena debe tener 4-10 caracteres\n")
                 create_staff(session, args.username, args.role, password)
                 print("Personal creado; contrasena no registrada")
     except ValueError as exc:

@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Área de cliente · Plaza Reserva{% endblock %}
+{% block content %}
+<p class="eyebrow">Área de cliente</p><h1>Hola, {{ staff.username }}.</h1>
+<p class="intro">Programa tu llegada, conserva el mismo QR para ingreso y salida, y consulta tu reserva de forma privada.</p>
+<section class="grid"><article><h2>Nueva reserva</h2><p>Elige nombre, placa y fecha/hora de llegada.</p><a class="button" href="/reservar">Reservar espacio</a></article><article><h2>Mi reserva</h2><p>Consulta o cancela mediante tu código privado.</p><a class="button button-secondary" href="/mi-reserva">Consultar reserva</a></article></section>
+<button id="logout" type="button">Cerrar sesión</button><p id="logout-message" role="status"></p>
+{% endblock %}

@@ -63,7 +63,7 @@ class Staff(Base):
     role: Mapped[str] = mapped_column(String(12))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime())
-    __table_args__ = (CheckConstraint("role IN ('celador','vigilancia','admin')", name="role"),)
+    __table_args__ = (CheckConstraint("role IN ('admin','client')", name="role"),)
 
 
 class StaffSession(Base):
@@ -79,17 +79,19 @@ class Reservation(Base):
     __tablename__ = "reservations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     plate: Mapped[str] = mapped_column(String(12))
+    customer_name: Mapped[str | None] = mapped_column(String(80))
     space_id: Mapped[str] = mapped_column(ForeignKey("spaces.code"))
     status: Mapped[str] = mapped_column(String(10))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    scheduled_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     cancelled_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     __table_args__ = (
         UniqueConstraint("id", "space_id", "plate", name="uq_reservation_identity"),
         CheckConstraint("status IN ('pending','expired','cancelled','used')", name="status"),
-        CheckConstraint("expires_at > created_at", name="expiration"),
+        CheckConstraint("scheduled_at IS NULL OR expires_at > scheduled_at", name="expiration"),
         CheckConstraint("(status = 'cancelled' AND cancelled_at IS NOT NULL AND used_at IS NULL) OR "
                         "(status = 'used' AND used_at IS NOT NULL AND cancelled_at IS NULL) OR "
                         "(status IN ('pending','expired') AND cancelled_at IS NULL AND used_at IS NULL)", name="terminal_time"),

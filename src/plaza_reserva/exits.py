@@ -27,7 +27,7 @@ from .security import token_digest
 ROOT = Path(__file__).parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
-SALIDA_ROLES = ("celador", "admin")
+SALIDA_ROLES = ("admin",)
 MICROSECONDS_PER_MINUTE = 60_000_000
 CENTS_PER_MINUTE = 2
 

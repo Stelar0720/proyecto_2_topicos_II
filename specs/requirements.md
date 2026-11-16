@@ -14,6 +14,8 @@ se describen en README y cuya verificación real figura en `docs/testing.md`.
 | RF-06 | Calcular desde entrada real, cobrar manualmente y cerrar una sola vez | OUT-03 | HU-04 |
 | RF-07 | Mostrar placa, espacio y duración de estadías abiertas de más de 24 h | OUT-04 | HU-05 |
 | RF-08 | Autenticar personal de garita, vigilancia y administración | OUT-02/03/04 | BASE-02 |
+| RF-09 | Permitir a clientes demo programar una reserva con nombre, placa y fecha/hora seleccionada | OUT-01 | DEMO-UX |
+| RF-10 | Mostrar al administrador el estado visual de los 100 espacios y permitir escanear QR de entrada/salida | OUT-02/03/04 | DEMO-UX |
 | RNF-01 | Evitar doble asignación, duplicación de placa y registros parciales bajo concurrencia | OUT-01/02/03 | HU-01/03/04 |
 | RNF-02 | QR/códigos impredecibles, sin datos personales; acceso privado no enumerable | OUT-01/02 | HU-01/02/03 |
 | RNF-03 | UTC persistido, America/Panama en vistas, reloj controlable, centavos enteros | OUT-03/04 | BASE-02/HU-04/05 |
@@ -22,7 +24,10 @@ se describen en README y cuya verificación real figura en `docs/testing.md`.
 
 ## Exclusiones acordadas
 
-Sin horarios futuros, hora de salida contratada, cobro automático ni integración física.
+Sin hora de salida contratada, cobro automático ni integración física. Para la demo,
+las reservas admiten una fecha/hora pasada o futura elegida manualmente; la ventana
+de llegada dura 30 minutos desde esa hora. El cobro inicia al registrar el ingreso,
+no al programar la reserva.
 Ampliación prevista **sin implementar**: recargos B/.25.00 por espacio reservado ajeno
 y pérdida de ticket, incidencias por personal autorizado, recuperación por placa
 conservando entrada original y prevención de recargos duplicados. Se especificará

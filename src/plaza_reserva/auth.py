@@ -17,7 +17,7 @@ COOKIE = "plaza_session"
 
 class LoginBody(BaseModel):
     username: str = Field(min_length=1, max_length=80)
-    password: SecretStr = Field(min_length=12, max_length=128)
+    password: SecretStr = Field(min_length=4, max_length=10)
 
 
 class LoginLimiter:

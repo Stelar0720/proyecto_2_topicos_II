@@ -10,17 +10,18 @@ reservar o ingresar según cupo, evitar duplicados y mantener estadías y pagos 
 
 ## Alcance
 
-Plaza ficticia: 20 preferenciales P001–P020 para reservas próximas de 30 minutos y
+Plaza ficticia: 20 preferenciales P001–P020 para reservas programadas de 30 minutos y
 80 generales G001–G080 para espontáneos. Operación continua, America/Panama y B/.
-Celador coteja placa/acceso físico manualmente. Tarifa futura: 2 centavos por minuto,
-redondeando cada fracción hacia arriba; alerta informativa al superar 24 horas.
+El administrador coteja placa/acceso físico manualmente. La tarifa es B/.0.02 por
+minuto, redondeando cada fracción hacia arriba desde el ingreso real; hay alerta
+informativa al superar 24 horas.
 
-La base incluye modelos/migración, configuración SQLite/PostgreSQL, autenticación
-del personal sin registro público, layout, salud, seed idempotente de espacios,
-pruebas escritas y workflow inicial. **No implementa** reservas, consulta/cancelación,
-ingresos, QR/tickets, salidas, cobros ni alertas completos.
+La demo incluye reservas con nombre y calendario, consulta/cancelación, ingreso,
+un único QR por visita (entrada y salida), ticket, cobro manual, alertas y tablero
+administrativo. Solo existen los roles `admin` y `client`.
 
-Sin integración de cámaras, sensores, barreras o pasarela; sin horarios futuros.
+Sin sensores, barreras ni pasarela. El escáner QR usa la cámara del navegador cuando
+está disponible y siempre mantiene entrada manual como alternativa.
 Recargos B/.25.00, incidencias y recuperación por placa son ampliación prevista,
 no implementada ni presentada como un cambio inesperado ya ocurrido. El equipo
 aportará el cambio concreto a mitad del desarrollo con evidencia real. ALPR: fase 2.
@@ -60,7 +61,7 @@ python -m venv .venv
 Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m plaza_reserva.cli seed-spaces
-.\.venv\Scripts\python.exe -m plaza_reserva.cli create-staff --username operador --role celador
+.\.venv\Scripts\python.exe -m plaza_reserva.cli create-staff --username admin --role admin
 .\.venv\Scripts\python.exe -m uvicorn plaza_reserva.main:create_app --factory --reload --no-access-log
 ```
 

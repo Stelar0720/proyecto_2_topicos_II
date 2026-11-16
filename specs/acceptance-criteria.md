@@ -26,6 +26,9 @@ no resultados ya obtenidos. Detallar las historias posteriores justo antes de im
 | AC-12 | Dada estadía abierta de 24h−1µs/24h/24h+1µs, cuando consulto alertas, entonces solo la última aparece con placa/espacio/duración, sin recargo/liberación; cerradas excluidas. |
 | AC-13 | Dado visitante o rol no permitido, cuando invoca operación protegida, entonces 401/403; no datos ajenos ni códigos completos en logs/errores. |
 | AC-14 | Dada BD demo separada y referencia fija, cuando cargo dos veces, entonces existen los seis escenarios acordados sin duplicados ni borrado de datos ajenos. |
+| AC-15 | Dado cliente/admin autenticado, cuando programa una reserva con nombre, placa y fecha/hora pasada o futura, entonces se conserva la ventana de 30 minutos y se rechaza un solapamiento de preferencial. |
+| AC-16 | Dado un QR de visita, cuando se escanea en garita y luego en salida, entonces el mismo código identifica la misma estadía y el cobro comienza en `entered_at`. |
+| AC-17 | Dado el dashboard admin, cuando hay espacios libres, reservas/estadías normales y estadías abiertas de más de 24h, entonces muestra los 100 espacios en gris, verde y rojo respectivamente. |
 
 AC-01–08 son el primer detalle operativo próximo: HU-01 → HU-02 → HU-03.
 Alex refinará AC-09–14 antes de implementar HU-04/05/QA-01, conservando fronteras.
