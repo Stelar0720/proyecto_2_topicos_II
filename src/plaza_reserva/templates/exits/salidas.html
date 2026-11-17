@@ -19,7 +19,7 @@
 {% if quote %}
 <section class="grid" aria-label="Resultado de cotización">
  <article><h2>Placa</h2><p class="number">{{ quote.plate }}</p><p>Espacio {{ quote.space_code }}.</p></article>
- <article><h2>Importe provisional</h2><p class="number">B/. {{ '%.2f'|format(quote.amount_cents / 100) }}</p><p>Estancia: B/. {{ '%.2f'|format(quote.base_amount_cents / 100) }}. Multa: B/. {{ '%.2f'|format(quote.mismatch_fee_cents / 100) }}.</p></article>
+ <article><h2>Importe provisional</h2><p class="number">B/. {{ '%.2f'|format(quote.amount_cents / 100) }}</p><p>Estancia: B/. {{ '%.2f'|format(quote.base_amount_cents / 100) }}. Multa: B/. {{ '%.2f'|format(quote.mismatch_fee_cents / 100) }}.</p><p>Tiempo transcurrido: {{ quote.duration_seconds // 3600 }} h {{ (quote.duration_seconds % 3600) // 60 }} min {{ quote.duration_seconds % 60 }} s.</p></article>
  <article><h2>Entrada</h2><p>{{ entered }}</p><p>Calculado al {{ as_of }} (America/Panama).</p></article>
 </section>
 {% if quote.mismatch_fee_cents %}<p class="notice" role="alert"><strong>Discordancia detectada.</strong> La placa o el estacionamiento no coincide con el QR; se aplicará multa de B/. 25.00.</p>{% endif %}
